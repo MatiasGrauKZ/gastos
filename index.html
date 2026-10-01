@@ -215,15 +215,68 @@
   .sheet p { margin: 0 0 18px; font-size: 17px; overflow-wrap: anywhere; }
   .sheet .row2 button { border: 0; border-radius: 14px; padding: 14px; font-weight: 700; cursor: pointer; background: var(--surface-2); }
   .sheet .row2 button.yes { background: var(--danger); color: #fff; }
+  /* ---------- Sesión ---------- */
+  #bootView { display: none; text-align: center; padding: 90px 16px; color: var(--ink-soft); }
+  body.s-boot #bootView { display: block; }
+  body.s-boot #authView, body.s-in #authView,
+  body.s-boot #appMain, body.s-out #appMain,
+  body.s-boot nav, body.s-out nav { display: none; }
+  body.s-boot, body.s-out { padding-bottom: 24px; }
+  .auth-hero { text-align: center; padding: 36px 8px 22px; }
+  .auth-hero .auth-emoji { font-size: 56px; line-height: 1; }
+  .auth-hero h1 { font-size: 34px; margin: 10px 0 6px; font-weight: 800; }
+  .auth-hero p { margin: 0 auto; color: var(--ink-soft); max-width: 36ch; }
+  .btn-google {
+    width: 100%; padding: 15px; border-radius: 16px; border: 2px solid var(--line);
+    background: var(--surface); font-weight: 700; cursor: pointer; display: flex; gap: 10px; justify-content: center; align-items: center;
+  }
+  .btn-google b { font-family: var(--display); font-size: 20px; color: #4285f4; }
+  .or { display: flex; align-items: center; gap: 12px; color: var(--ink-soft); font-size: 14px; margin: 18px 0; }
+  .or::before, .or::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+  .linklike { all: unset; cursor: pointer; display: block; margin: 16px auto 0; color: var(--ink-soft); text-decoration: underline; font-size: 14px; }
+  .linklike:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .auth-err { color: var(--danger); font-weight: 500; text-align: center; min-height: 1.4em; margin: 14px 0 0; }
+  .notice { background: var(--surface); border: 2px solid var(--accent); border-radius: 16px; padding: 14px 16px; margin-bottom: 16px; }
+  .notice p { margin: 0 0 10px; }
+  .notice .row2 button { border: 0; border-radius: 12px; padding: 12px; font-weight: 700; cursor: pointer; background: var(--surface-2); }
+  .notice .row2 button.go { background: var(--brand); color: var(--brand-ink); }
+  .notice code { background: var(--surface-2); padding: 1px 6px; border-radius: 6px; font-size: 14px; }
   [hidden] { display: none !important; }
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
   @media (max-width: 360px) { #amount { font-size: 44px; } .cats { grid-template-columns: repeat(2, 1fr); } }
 </style>
 </head>
-<body>
-<main>
+<body class="s-boot">
+<div id="bootView" role="status">Cargando…</div>
+
+<main id="authView" aria-label="Iniciar sesión">
+  <div class="auth-hero">
+    <div class="auth-emoji">💸</div>
+    <h1>Mis gastos</h1>
+    <p>Entrá con tu cuenta para ver y cargar tus movimientos desde la compu y el celular.</p>
+  </div>
+  <div class="notice" id="setupNotice" hidden>
+    <p><b>Falta un paso de configuración.</b> Abrí el archivo <code>index.html</code> y reemplazá cada <code>PEGAR_AQUI</code> con los datos de tu proyecto de Firebase.</p>
+  </div>
+  <div id="authForm">
+    <button class="btn-google" id="btnGoogle" type="button"><b>G</b> Continuar con Google</button>
+    <div class="or"><span>o con tu mail</span></div>
+    <input class="input" id="email" type="email" inputmode="email" autocomplete="email" placeholder="tu@mail.com" aria-label="Mail">
+    <input class="input" id="pass" type="password" autocomplete="current-password" placeholder="Contraseña (mínimo 6 caracteres)" aria-label="Contraseña" style="margin-top:8px">
+    <button class="btn-main" id="btnLogin" type="button" style="margin-top:14px">Entrar</button>
+    <button class="btn-sec" id="btnSignup" type="button" style="margin-top:8px;text-align:center">Crear cuenta nueva</button>
+    <button class="linklike" id="btnReset" type="button">Olvidé mi contraseña</button>
+    <p class="auth-err" id="authErr" role="alert"></p>
+  </div>
+</main>
+
+<main id="appMain">
   <!-- ============ CARGAR ============ -->
   <section id="view-add" aria-label="Cargar gasto">
+    <div class="notice" id="migrate" hidden>
+      <p id="migrateMsg"></p>
+      <div class="row2"><button type="button" class="go" id="migrateYes">Subirlos</button><button type="button" id="migrateNo">Ahora no</button></div>
+    </div>
     <div class="seg" role="group" aria-label="Tipo de movimiento">
       <button type="button" id="modeOut" aria-pressed="true">Gasto</button>
       <button type="button" id="modeIn" aria-pressed="false">Ingreso</button>
@@ -285,9 +338,12 @@
   <!-- ============ AJUSTES ============ -->
   <section id="view-set" aria-label="Ajustes" hidden>
     <h2 style="margin-bottom:6px">Ajustes</h2>
-    <p class="help" style="margin-top:0">Tus datos se guardan en este navegador, en este dispositivo. Hacé una copia de vez en cuando.</p>
+    <div class="field-title">Cuenta</div>
+    <p class="help" id="syncInfo" style="margin:0 0 8px"></p>
+    <button class="btn-sec" id="logout" type="button">🚪 Cerrar sesión</button>
 
     <div class="field-title">Copia de seguridad</div>
+    <p class="help" style="margin:0 0 8px">Tus datos ya están guardados en tu cuenta. Esto es un extra por si querés tener una copia en tu compu.</p>
     <div class="stack">
       <button class="btn-sec" id="expJson" type="button">⬇️ Descargar copia (.json)</button>
       <button class="btn-sec" id="impJson" type="button">⬆️ Restaurar desde una copia</button>
@@ -330,10 +386,30 @@
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-<script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, collection, setDoc, deleteDoc, onSnapshot, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+/* =====================================================================
+   CONFIGURACIÓN DE FIREBASE
+   Reemplazá cada PEGAR_AQUI por los datos que te muestra Firebase
+   (Configuración del proyecto → Tus apps → Configuración del SDK).
+   ===================================================================== */
+const firebaseConfig = {
+  apiKey: "AIzaSyANReE4v74bE49Cs6u6zYLdfNbhaIyMoEI",
+  authDomain: "gastos-9596a.firebaseapp.com",
+  projectId: "gastos-9596a",
+  storageBucket: "gastos-9596a.firebasestorage.app",
+  messagingSenderId: "858555230919",
+  appId: "1:858555230919:web:e6c99bfd3668d7b84eace2"
+};
+/* ===================================================================== */
+
 (function () {
   'use strict';
-  var KEY = 'mis-gastos-v1';
+  var LOCAL_KEY = 'mis-gastos-v1';
+  var MIGRATED_KEY = 'mis-gastos-migrated';
   var THEME_KEY = 'mis-gastos-theme';
 
   var COLORS = ['#e07a5f','#3d85c6','#6aa84f','#f2b134','#8e6bbf','#d9608a','#2fa8a0','#a67c52','#5b7db1','#c4553a','#7a9e3b','#e08e2b','#4a9d7f','#b05fb0','#6c757d','#cc8a00'];
@@ -356,7 +432,6 @@
     { id: 'regalos',     name: 'Regalos',        emoji: '🎁' },
     { id: 'otros',       name: 'Otros',          emoji: '📦' }
   ];
-
   var INCOME_CATS = [
     { id: 'in_sueldo',    name: 'Sueldo',            emoji: '💼' },
     { id: 'in_extra',     name: 'Trabajos extra',    emoji: '🛠️' },
@@ -366,37 +441,6 @@
     { id: 'in_regalos',   name: 'Regalos recibidos', emoji: '🎀' },
     { id: 'in_otros',     name: 'Otros ingresos',    emoji: '💰' }
   ];
-
-  /* ---------- Estado ---------- */
-  var state = load();
-  var selectedCat = null;
-  var mode = 'out';
-  var viewMonth = monthOf(today());
-  var showAll = false;
-  var catFilter = null;
-
-  function load() {
-    var data = null;
-    try { data = JSON.parse(localStorage.getItem(KEY)); } catch (e) {}
-    if (!data || !Array.isArray(data.expenses)) data = { expenses: [], customCats: [] };
-    if (!Array.isArray(data.customCats)) data.customCats = [];
-    return data;
-  }
-  function save() {
-    try { localStorage.setItem(KEY, JSON.stringify(state)); return true; }
-    catch (e) { toast('No se pudo guardar en este navegador'); return false; }
-  }
-  function allCats() {
-    var list = DEFAULT_CATS.map(function (c) { return { id: c.id, name: c.name, emoji: c.emoji, saving: !!c.saving, kind: 'out' }; })
-      .concat(INCOME_CATS.map(function (c) { return { id: c.id, name: c.name, emoji: c.emoji, saving: false, kind: 'in' }; }))
-      .concat(state.customCats.map(function (c) { return { id: c.id, name: c.name, emoji: c.emoji, saving: false, kind: c.kind === 'in' ? 'in' : 'out' }; }));
-    return list.map(function (c, i) { c.color = COLORS[i % COLORS.length]; return c; });
-  }
-  function catById(id) {
-    var list = allCats();
-    for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i];
-    return { id: id, name: 'Sin categoría', emoji: '❔', color: '#6c757d', saving: false, kind: 'out' };
-  }
 
   /* ---------- Utilidades ---------- */
   var $ = function (id) { return document.getElementById(id); };
@@ -436,7 +480,7 @@
   var toastTimer;
   function toast(msg) {
     var t = $('toast'); t.textContent = msg; t.classList.add('show');
-    clearTimeout(toastTimer); toastTimer = setTimeout(function () { t.classList.remove('show'); }, 2200);
+    clearTimeout(toastTimer); toastTimer = setTimeout(function () { t.classList.remove('show'); }, 2600);
   }
   function shortDate(d) {
     var p = d.split('-');
@@ -446,8 +490,64 @@
     var n = parseInt(hex.slice(1), 16);
     return 'rgba(' + (n >> 16) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')';
   }
+  function sortDesc(a, b) {
+    if (a.date !== b.date) return a.date < b.date ? 1 : -1;
+    var ca = a.createdAt || 0, cb = b.createdAt || 0;
+    if (ca !== cb) return ca < cb ? 1 : -1;
+    return a.id < b.id ? 1 : -1;
+  }
+
+  /* ---------- Firebase ---------- */
+  var configured = /^AIza/.test(firebaseConfig.apiKey || '');
+  var app, auth, db;
+  if (configured) {
+    app = initializeApp(firebaseConfig);
+    auth = getAuth(app);
+    try {
+      db = initializeFirestore(app, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) });
+    } catch (e) { db = getFirestore(app); }
+  }
+
+  var state = { expenses: [], customCats: [] };
+  var loaded = { exp: false, meta: false };
+  var pending = false;
+  var userId = null, unsubExp = null, unsubMeta = null;
+
+  function expCol() { return collection(db, 'users', userId, 'expenses'); }
+  function expRef(id) { return doc(db, 'users', userId, 'expenses', id); }
+  function setRef() { return doc(db, 'users', userId, 'meta', 'settings'); }
+  function isLoaded() { return loaded.exp && loaded.meta; }
+  function fail(prefix) { return function (err) { toast(prefix + ((err && err.code) ? ' (' + err.code + ')' : '')); }; }
+
+  async function batchRun(items, fn) {
+    for (var i = 0; i < items.length; i += 400) {
+      var b = writeBatch(db);
+      items.slice(i, i + 400).forEach(function (it) { fn(b, it); });
+      await b.commit();
+    }
+  }
+
+  /* ---------- Categorías ---------- */
+  var selectedCat = null;
+  var mode = 'out';
+  var viewMonth = monthOf(today());
+  var showAll = false;
+  var catFilter = null;
+
+  function allCats() {
+    var list = DEFAULT_CATS.map(function (c) { return { id: c.id, name: c.name, emoji: c.emoji, saving: !!c.saving, kind: 'out' }; })
+      .concat(INCOME_CATS.map(function (c) { return { id: c.id, name: c.name, emoji: c.emoji, saving: false, kind: 'in' }; }))
+      .concat(state.customCats.map(function (c) { return { id: c.id, name: c.name, emoji: c.emoji, saving: false, kind: c.kind === 'in' ? 'in' : 'out' }; }));
+    return list.map(function (c, i) { c.color = COLORS[i % COLORS.length]; return c; });
+  }
+  function catById(id) {
+    var list = allCats();
+    for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i];
+    return { id: id, name: 'Sin categoría', emoji: '❔', color: '#6c757d', saving: false, kind: 'out' };
+  }
 
   /* ---------- Navegación ---------- */
+  function setScreen(s) { document.body.className = 's-' + s; }
   function showTab(name) {
     ['add', 'sum', 'set'].forEach(function (t) { $('view-' + t).hidden = (t !== name); });
     document.querySelectorAll('nav button').forEach(function (b) {
@@ -460,6 +560,10 @@
   document.querySelectorAll('nav button').forEach(function (b) {
     b.addEventListener('click', function () { showTab(b.dataset.tab); });
   });
+  function renderAll() {
+    renderCats(); renderRecent(); renderSettings();
+    if (!$('view-sum').hidden) renderSummary();
+  }
 
   /* ---------- Cargar ---------- */
   function renderCats() {
@@ -474,7 +578,7 @@
     });
   }
 
-  function itemRow(e, withDelete) {
+  function itemRow(e) {
     var c = catById(e.cat);
     var title = e.desc ? e.desc : c.name;
     var row = el('div', { class: 'item' }, [
@@ -485,39 +589,35 @@
       ]),
       el('div', { class: c.kind === 'in' ? 'a inc' : 'a', text: (c.kind === 'in' ? '+ ' : '') + fmt(e.amount) })
     ]);
-    if (withDelete) {
-      var x = el('button', { class: 'x', type: 'button', 'aria-label': 'Borrar gasto' , text: '✕' });
-      x.addEventListener('click', function () {
-        ask('¿Borrar "' + title + '" por ' + fmt(e.amount) + '?', 'Borrar', function () {
-          state.expenses = state.expenses.filter(function (z) { return z.id !== e.id; });
-          save(); renderRecent(); renderSummary(); toast('Movimiento borrado');
-        });
+    var x = el('button', { class: 'x', type: 'button', 'aria-label': 'Borrar movimiento', text: '✕' });
+    x.addEventListener('click', function () {
+      ask('¿Borrar "' + title + '" por ' + fmt(e.amount) + '?', 'Borrar', function () {
+        deleteDoc(expRef(e.id)).catch(fail('No se pudo borrar'));
+        toast('Movimiento borrado');
       });
-      row.appendChild(x);
-    } else {
-      row.style.gridTemplateColumns = '38px 1fr auto';
-    }
+    });
+    row.appendChild(x);
     return row;
   }
 
   function renderRecent() {
     var box = $('recent'); box.textContent = '';
+    if (!isLoaded()) { box.appendChild(el('div', { class: 'empty', text: 'Cargando tus movimientos…' })); return; }
     var list = state.expenses.slice().sort(sortDesc).slice(0, 5);
     if (!list.length) { box.appendChild(el('div', { class: 'empty', text: 'Todavía no cargaste nada. Elegí gasto o ingreso, poné un monto y una categoría, y guardá.' })); return; }
-    list.forEach(function (e) { box.appendChild(itemRow(e, true)); });
+    list.forEach(function (e) { box.appendChild(itemRow(e)); });
   }
-  function sortDesc(a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : (a.id < b.id ? 1 : -1); }
 
   $('save').addEventListener('click', function () {
     var amount = parseAmount($('amount').value);
     if (!(amount > 0)) { toast('Poné un monto mayor a cero'); $('amount').focus(); return; }
     if (!selectedCat) { toast('Elegí una categoría'); return; }
-    var date = $('date').value || today();
-    state.expenses.push({ id: uid(), amount: amount, cat: selectedCat, desc: $('desc').value.trim(), date: date });
-    if (!save()) { state.expenses.pop(); return; }
+    if (!userId) { toast('Tenés que iniciar sesión'); return; }
+    var rec = { amount: amount, cat: selectedCat, desc: $('desc').value.trim(), date: $('date').value || today(), createdAt: Date.now() };
+    setDoc(expRef(uid()), rec).catch(fail('No se pudo guardar'));
     toast('Guardado: ' + fmt(amount) + ' en ' + catById(selectedCat).name);
     $('amount').value = ''; $('desc').value = ''; $('date').value = today(); selectedCat = null;
-    renderCats(); renderRecent(); $('amount').focus();
+    renderCats(); $('amount').focus();
   });
 
   /* ---------- Resumen ---------- */
@@ -556,19 +656,19 @@
       box.textContent = '';
       var ids = Object.keys(totals).sort(function (a, b) { return totals[b] - totals[a]; });
       ids.forEach(function (id) {
-      var c = catById(id), pct = base ? totals[id] / base * 100 : 0;
-      var b = el('button', { type: 'button', class: 'brow', 'aria-pressed': catFilter === id ? 'true' : 'false' }, [
-        el('div', { class: 'brow-top' }, [
-          el('span', { text: c.emoji }),
-          el('span', { class: 'name', text: c.name }),
-          el('span', { class: 'val', text: fmt(totals[id]) }),
-          el('span', { class: 'pct', text: Math.round(pct) + '%' })
-        ]),
-        el('div', { class: 'bar' }, [el('i', { style: 'width:' + pct.toFixed(1) + '%;background:' + c.color })])
-      ]);
-      b.addEventListener('click', function () { catFilter = (catFilter === id) ? null : id; renderSummary(); });
-      box.appendChild(b);
-    });
+        var c = catById(id), pct = base ? totals[id] / base * 100 : 0;
+        var b = el('button', { type: 'button', class: 'brow', 'aria-pressed': catFilter === id ? 'true' : 'false' }, [
+          el('div', { class: 'brow-top' }, [
+            el('span', { text: c.emoji }),
+            el('span', { class: 'name', text: c.name }),
+            el('span', { class: 'val', text: fmt(totals[id]) }),
+            el('span', { class: 'pct', text: Math.round(pct) + '%' })
+          ]),
+          el('div', { class: 'bar' }, [el('i', { style: 'width:' + pct.toFixed(1) + '%;background:' + c.color })])
+        ]);
+        b.addEventListener('click', function () { catFilter = (catFilter === id) ? null : id; renderSummary(); });
+        box.appendChild(b);
+      });
     }
     drawBreakdown($('breakdownIn'), totIn, income);
     drawBreakdown($('breakdown'), totOut, spent + saved);
@@ -581,8 +681,9 @@
     else { cf.hidden = true; $('listTitle').textContent = 'Movimientos'; }
 
     var items = $('items'); items.textContent = '';
-    if (!shown.length) items.appendChild(el('div', { class: 'empty', text: 'No hay gastos en este período.' }));
-    shown.forEach(function (e) { items.appendChild(itemRow(e, true)); });
+    if (!isLoaded()) items.appendChild(el('div', { class: 'empty', text: 'Cargando tus movimientos…' }));
+    else if (!shown.length) items.appendChild(el('div', { class: 'empty', text: 'No hay movimientos en este período.' }));
+    shown.forEach(function (e) { items.appendChild(itemRow(e)); });
   }
   $('clearFilter').addEventListener('click', function () { catFilter = null; renderSummary(); });
   $('toggleAll').addEventListener('click', function () { showAll = !showAll; catFilter = null; renderSummary(); });
@@ -595,8 +696,34 @@
   $('prev').addEventListener('click', function () { shiftMonth(-1); });
   $('next').addEventListener('click', function () { shiftMonth(1); });
 
+  /* ---------- Gasto / Ingreso ---------- */
+  function setMode(m) {
+    mode = m; selectedCat = null;
+    $('modeOut').setAttribute('aria-pressed', m === 'out' ? 'true' : 'false');
+    $('modeIn').setAttribute('aria-pressed', m === 'in' ? 'true' : 'false');
+    $('amountBox').classList.toggle('income', m === 'in');
+    $('amountLabel').textContent = m === 'in' ? '¿Cuánto ingresó?' : '¿Cuánto gastaste?';
+    $('save').textContent = m === 'in' ? 'Guardar ingreso' : 'Guardar gasto';
+    $('desc').placeholder = m === 'in' ? 'Ej: sueldo de septiembre, venta de la bici' : 'Ej: nafta, verdulería, cuota del gym';
+    renderCats();
+  }
+  $('modeOut').addEventListener('click', function () { setMode('out'); });
+  $('modeIn').addEventListener('click', function () { setMode('in'); });
+
   /* ---------- Ajustes ---------- */
+  function renderSync() {
+    var email = (auth && auth.currentUser && auth.currentUser.email) ? auth.currentUser.email : 'tu cuenta';
+    var t;
+    if (!navigator.onLine) t = '📴 Sin conexión. Lo que cargues se sube solo cuando vuelva internet.';
+    else if (pending) t = '🔄 Subiendo cambios…';
+    else t = '☁️ Sincronizado';
+    $('syncInfo').textContent = t + ' · ' + email;
+  }
+  window.addEventListener('online', renderSync);
+  window.addEventListener('offline', renderSync);
+
   function renderSettings() {
+    renderSync();
     var box = $('manage'); box.textContent = '';
     if (!state.customCats.length) { box.appendChild(el('span', { class: 'help', text: 'Todavía no creaste categorías propias.' })); return; }
     state.customCats.forEach(function (c) {
@@ -605,9 +732,8 @@
         var used = state.expenses.some(function (e) { return e.cat === c.id; });
         if (used) { toast('"' + c.name + '" tiene movimientos. Borralos primero.'); return; }
         ask('¿Borrar la categoría "' + c.name + '"?', 'Borrar', function () {
-          state.customCats = state.customCats.filter(function (z) { return z.id !== c.id; });
           if (selectedCat === c.id) selectedCat = null;
-          save(); renderCats(); renderSettings();
+          setDoc(setRef(), { customCats: state.customCats.filter(function (z) { return z.id !== c.id; }) }).catch(fail('No se pudo borrar'));
         });
       });
       box.appendChild(ch);
@@ -618,9 +744,10 @@
     if (!name) { toast('Ponele un nombre a la categoría'); return; }
     var exists = allCats().some(function (c) { return c.name.toLowerCase() === name.toLowerCase(); });
     if (exists) { toast('Ya existe una categoría con ese nombre'); return; }
-    state.customCats.push({ id: 'c_' + uid(), name: name, emoji: emoji, kind: $('newKind').value === 'in' ? 'in' : 'out' });
-    save(); $('newName').value = ''; $('newEmoji').value = '';
-    renderCats(); renderSettings(); toast('Categoría agregada');
+    var nc = { id: 'c_' + uid(), name: name, emoji: emoji, kind: $('newKind').value === 'in' ? 'in' : 'out' };
+    setDoc(setRef(), { customCats: state.customCats.concat([nc]) }).catch(fail('No se pudo guardar'));
+    $('newName').value = ''; $('newEmoji').value = '';
+    toast('Categoría agregada');
   });
 
   function download(name, text, type) {
@@ -644,37 +771,73 @@
     }).join('\r\n');
     download('gastos-' + today() + '.csv', '\ufeff' + csv, 'text/csv;charset=utf-8');
   });
+
+  /* Importar (copia de seguridad o datos viejos del dispositivo) */
+  async function importData(d) {
+    var recs = [];
+    (d.expenses || []).forEach(function (e) {
+      if (e && e.id && e.amount > 0 && e.cat && /^\d{4}-\d{2}-\d{2}$/.test(e.date)) {
+        recs.push({ id: String(e.id).replace(/[^\w-]/g, '_'), amount: +e.amount, cat: String(e.cat), desc: String(e.desc || '').slice(0, 120), date: e.date, createdAt: +e.createdAt || Date.now() });
+      }
+    });
+    var cats = state.customCats.slice(), changed = false;
+    (d.customCats || []).forEach(function (c) {
+      if (c && c.id && c.name && !cats.some(function (z) { return z.id === c.id; })) {
+        cats.push({ id: String(c.id), name: String(c.name).slice(0, 24), emoji: String(c.emoji || '🏷️').slice(0, 4), kind: c.kind === 'in' ? 'in' : 'out' });
+        changed = true;
+      }
+    });
+    if (changed) await setDoc(setRef(), { customCats: cats });
+    await batchRun(recs, function (b, r) {
+      b.set(expRef(r.id), { amount: r.amount, cat: r.cat, desc: r.desc, date: r.date, createdAt: r.createdAt });
+    });
+    return recs.length;
+  }
   $('impJson').addEventListener('click', function () { $('file').click(); });
   $('file').addEventListener('change', function (ev) {
     var f = ev.target.files[0]; if (!f) return;
     var r = new FileReader();
-    r.onload = function () {
+    r.onload = async function () {
       try {
         var d = JSON.parse(r.result);
         if (!d || !Array.isArray(d.expenses)) throw new Error('formato');
-        var have = {}; state.expenses.forEach(function (e) { have[e.id] = true; });
-        var added = 0;
-        d.expenses.forEach(function (e) {
-          if (e && e.id && !have[e.id] && e.amount > 0 && e.cat && /^\d{4}-\d{2}-\d{2}$/.test(e.date)) {
-            state.expenses.push({ id: String(e.id), amount: +e.amount, cat: String(e.cat), desc: String(e.desc || ''), date: e.date });
-            added++;
-          }
-        });
-        (d.customCats || []).forEach(function (c) {
-          if (c && c.id && c.name && !state.customCats.some(function (z) { return z.id === c.id; }))
-            state.customCats.push({ id: String(c.id), name: String(c.name), emoji: String(c.emoji || '🏷️'), kind: c.kind === 'in' ? 'in' : 'out' });
-        });
-        save(); renderCats(); renderRecent(); renderSettings();
-        toast('Se restauraron ' + added + ' gastos');
+        toast('Subiendo…');
+        var n = await importData(d);
+        toast('Se restauraron ' + n + ' movimientos');
       } catch (e) { toast('El archivo no es una copia válida'); }
       $('file').value = '';
     };
     r.readAsText(f);
   });
+
+  /* Datos que quedaron guardados en este dispositivo de la versión anterior */
+  function localData() {
+    try { var d = JSON.parse(localStorage.getItem(LOCAL_KEY)); return (d && Array.isArray(d.expenses)) ? d : null; }
+    catch (e) { return null; }
+  }
+  function checkMigrate() {
+    var d = localData(), flag = null;
+    try { flag = localStorage.getItem(MIGRATED_KEY); } catch (e) {}
+    if (d && d.expenses.length && !flag) {
+      $('migrateMsg').textContent = 'Encontré ' + d.expenses.length + ' movimientos guardados en este dispositivo. ¿Querés subirlos a tu cuenta para verlos en todos lados?';
+      $('migrate').hidden = false;
+    } else $('migrate').hidden = true;
+  }
+  function markMigrated() { try { localStorage.setItem(MIGRATED_KEY, '1'); } catch (e) {} $('migrate').hidden = true; }
+  $('migrateNo').addEventListener('click', markMigrated);
+  $('migrateYes').addEventListener('click', async function () {
+    var d = localData(); if (!d) { markMigrated(); return; }
+    try { toast('Subiendo…'); var n = await importData(d); markMigrated(); toast('Se subieron ' + n + ' movimientos'); }
+    catch (e) { toast('No se pudo subir. Probá de nuevo con internet.'); }
+  });
+
   $('wipe').addEventListener('click', function () {
-    ask('Esto borra TODOS tus movimientos y categorías de este dispositivo. No se puede deshacer.', 'Borrar todo', function () {
-      state = { expenses: [], customCats: [] }; save();
-      selectedCat = null; renderCats(); renderRecent(); renderSettings(); toast('Todo borrado');
+    ask('Esto borra TODOS tus movimientos y categorías de tu cuenta, en todos tus dispositivos. No se puede deshacer.', 'Borrar todo', async function () {
+      try {
+        await batchRun(state.expenses.slice(), function (b, e) { b.delete(expRef(e.id)); });
+        await setDoc(setRef(), { customCats: [] });
+        selectedCat = null; toast('Todo borrado');
+      } catch (err) { toast('No se pudo borrar' + (err && err.code ? ' (' + err.code + ')' : '')); }
     });
   });
   $('themeBtn').addEventListener('click', function () {
@@ -686,25 +849,96 @@
   });
   try { var th = localStorage.getItem(THEME_KEY); if (th) document.documentElement.setAttribute('data-theme', th); } catch (e) {}
 
-  /* ---------- Gasto / Ingreso ---------- */
-  function setMode(m) {
-    mode = m; selectedCat = null;
-    $('modeOut').setAttribute('aria-pressed', m === 'out' ? 'true' : 'false');
-    $('modeIn').setAttribute('aria-pressed', m === 'in' ? 'true' : 'false');
-    $('amountBox').classList.toggle('income', m === 'in');
-    $('amountLabel').textContent = m === 'in' ? '¿Cuánto ingresó?' : '¿Cuánto gastaste?';
-    $('save').textContent = m === 'in' ? 'Guardar ingreso' : 'Guardar gasto';
-    $('desc').placeholder = m === 'in' ? 'Ej: sueldo de septiembre, venta de la bici' : 'Ej: nafta, verdulería, cuota del gym';
-    renderCats();
+  /* ---------- Sesión ---------- */
+  function authError(e) {
+    var code = (e && e.code) || '';
+    var msg = {
+      'auth/invalid-credential': 'Mail o contraseña incorrectos.',
+      'auth/wrong-password': 'Mail o contraseña incorrectos.',
+      'auth/user-not-found': 'Mail o contraseña incorrectos.',
+      'auth/invalid-email': 'Ese mail no parece válido.',
+      'auth/missing-password': 'Escribí tu contraseña.',
+      'auth/email-already-in-use': 'Ese mail ya tiene una cuenta. Tocá "Entrar".',
+      'auth/weak-password': 'La contraseña tiene que tener al menos 6 caracteres.',
+      'auth/popup-blocked': 'El navegador bloqueó la ventana de Google. Probá entrar con mail y contraseña.',
+      'auth/unauthorized-domain': 'Este sitio no está autorizado en Firebase. Agregalo en Authentication → Settings → Authorized domains.',
+      'auth/operation-not-allowed': 'Ese método de ingreso no está activado en Firebase.',
+      'auth/network-request-failed': 'No hay conexión a internet.',
+      'auth/too-many-requests': 'Demasiados intentos. Esperá unos minutos y probá de nuevo.'
+    }[code];
+    if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') msg = '';
+    $('authErr').textContent = (msg === undefined) ? ('No se pudo entrar' + (code ? ' (' + code + ')' : '') + '.') : msg;
   }
-  $('modeOut').addEventListener('click', function () { setMode('out'); });
-  $('modeIn').addEventListener('click', function () { setMode('in'); });
+  function creds() { return [$('email').value.trim(), $('pass').value]; }
 
-  /* ---------- Init ---------- */
+  $('btnGoogle').addEventListener('click', async function () {
+    $('authErr').textContent = '';
+    try { await signInWithPopup(auth, new GoogleAuthProvider()); } catch (e) { authError(e); }
+  });
+  $('btnLogin').addEventListener('click', async function () {
+    $('authErr').textContent = '';
+    var c = creds();
+    try { await signInWithEmailAndPassword(auth, c[0], c[1]); } catch (e) { authError(e); }
+  });
+  $('btnSignup').addEventListener('click', async function () {
+    $('authErr').textContent = '';
+    var c = creds();
+    try { await createUserWithEmailAndPassword(auth, c[0], c[1]); } catch (e) { authError(e); }
+  });
+  $('btnReset').addEventListener('click', async function () {
+    $('authErr').textContent = '';
+    var c = creds();
+    if (!c[0]) { $('authErr').textContent = 'Escribí tu mail arriba y volvé a tocar este botón.'; return; }
+    try { await sendPasswordResetEmail(auth, c[0]); toast('Te mandamos un mail para cambiar la contraseña'); } catch (e) { authError(e); }
+  });
+  $('pass').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('btnLogin').click(); });
+  $('logout').addEventListener('click', function () { signOut(auth).catch(fail('No se pudo cerrar sesión')); });
+
+  function stopListening() {
+    if (unsubExp) { unsubExp(); unsubExp = null; }
+    if (unsubMeta) { unsubMeta(); unsubMeta = null; }
+  }
+  function onUser(user) {
+    stopListening();
+    state = { expenses: [], customCats: [] };
+    loaded = { exp: false, meta: false };
+    pending = false;
+    if (!user) { userId = null; $('pass').value = ''; setScreen('out'); return; }
+    userId = user.uid;
+    setScreen('in');
+    showTab('add');
+    renderAll();
+    checkMigrate();
+    unsubExp = onSnapshot(expCol(), function (snap) {
+      state.expenses = snap.docs.map(function (d) {
+        var x = d.data();
+        return { id: d.id, amount: +x.amount || 0, cat: String(x.cat || ''), desc: String(x.desc || ''), date: String(x.date || today()), createdAt: +x.createdAt || 0 };
+      });
+      loaded.exp = true;
+      pending = !!(snap.metadata && snap.metadata.hasPendingWrites);
+      renderAll();
+    }, fail('Error de sincronización'));
+    unsubMeta = onSnapshot(setRef(), function (snap) {
+      var d = snap.exists() ? snap.data() : null;
+      state.customCats = (d && Array.isArray(d.customCats)) ? d.customCats : [];
+      loaded.meta = true;
+      renderAll();
+    }, fail('Error de sincronización'));
+  }
+
+  /* ---------- Inicio ---------- */
   $('date').value = today();
   $('amount').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('desc').focus(); });
   $('desc').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('save').click(); });
-  renderCats(); renderRecent();
+  renderCats();
+
+  if (!configured) {
+    setScreen('out');
+    $('setupNotice').hidden = false;
+    $('authForm').hidden = true;
+  } else {
+    onAuthStateChanged(auth, onUser, function (e) { setScreen('out'); authError(e); });
+  }
 })();
 </script>
 </body>
