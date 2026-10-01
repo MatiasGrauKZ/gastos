@@ -504,19 +504,19 @@ const firebaseConfig = {
     app = initializeApp(firebaseConfig);
     auth = getAuth(app);
     try {
-      db = initializeFirestore(app, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) });
+      db = initializeFirestore(app, { experimentalAutoDetectLongPolling: true, localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) });
     } catch (e) { db = getFirestore(app); }
   }
 
   var state = { expenses: [], customCats: [] };
   var loaded = { exp: false, meta: false };
-  var pending = false;
+  var pending = false, fromCache = false, connError = '', loadTimer = null;
   var userId = null, unsubExp = null, unsubMeta = null;
 
   function expCol() { return collection(db, 'users', userId, 'expenses'); }
   function expRef(id) { return doc(db, 'users', userId, 'expenses', id); }
   function setRef() { return doc(db, 'users', userId, 'meta', 'settings'); }
-  function isLoaded() { return loaded.exp && loaded.meta; }
+  function isLoaded() { return loaded.exp; }
   function fail(prefix) { return function (err) { toast(prefix + ((err && err.code) ? ' (' + err.code + ')' : '')); }; }
 
   async function batchRun(items, fn) {
@@ -602,7 +602,7 @@ const firebaseConfig = {
 
   function renderRecent() {
     var box = $('recent'); box.textContent = '';
-    if (!isLoaded()) { box.appendChild(el('div', { class: 'empty', text: 'Cargando tus movimientos…' })); return; }
+    if (!isLoaded()) { box.appendChild(el('div', { class: 'empty', text: connError ? ('No se pudo conectar con el servidor (' + connError + '). Revisá tu internet y recargá la página.') : 'Cargando tus movimientos…' })); return; }
     var list = state.expenses.slice().sort(sortDesc).slice(0, 5);
     if (!list.length) { box.appendChild(el('div', { class: 'empty', text: 'Todavía no cargaste nada. Elegí gasto o ingreso, poné un monto y una categoría, y guardá.' })); return; }
     list.forEach(function (e) { box.appendChild(itemRow(e)); });
@@ -681,7 +681,7 @@ const firebaseConfig = {
     else { cf.hidden = true; $('listTitle').textContent = 'Movimientos'; }
 
     var items = $('items'); items.textContent = '';
-    if (!isLoaded()) items.appendChild(el('div', { class: 'empty', text: 'Cargando tus movimientos…' }));
+    if (!isLoaded()) items.appendChild(el('div', { class: 'empty', text: connError ? ('No se pudo conectar con el servidor (' + connError + '). Revisá tu internet y recargá la página.') : 'Cargando tus movimientos…' }));
     else if (!shown.length) items.appendChild(el('div', { class: 'empty', text: 'No hay movimientos en este período.' }));
     shown.forEach(function (e) { items.appendChild(itemRow(e)); });
   }
@@ -715,7 +715,9 @@ const firebaseConfig = {
     var email = (auth && auth.currentUser && auth.currentUser.email) ? auth.currentUser.email : 'tu cuenta';
     var t;
     if (!navigator.onLine) t = '📴 Sin conexión. Lo que cargues se sube solo cuando vuelva internet.';
+    else if (connError) t = '⚠️ No se pudo conectar con el servidor (' + connError + ')';
     else if (pending) t = '🔄 Subiendo cambios…';
+    else if (fromCache) t = '⏳ Conectando con el servidor…';
     else t = '☁️ Sincronizado';
     $('syncInfo').textContent = t + ' · ' + email;
   }
@@ -902,28 +904,39 @@ const firebaseConfig = {
     stopListening();
     state = { expenses: [], customCats: [] };
     loaded = { exp: false, meta: false };
-    pending = false;
+    pending = false; fromCache = false; connError = '';
+    clearTimeout(loadTimer);
     if (!user) { userId = null; $('pass').value = ''; setScreen('out'); return; }
     userId = user.uid;
     setScreen('in');
     showTab('add');
     renderAll();
     checkMigrate();
+    loadTimer = setTimeout(function () { if (!loaded.exp) { loaded.exp = true; renderAll(); } }, 6000);
     unsubExp = onSnapshot(expCol(), function (snap) {
       state.expenses = snap.docs.map(function (d) {
         var x = d.data();
         return { id: d.id, amount: +x.amount || 0, cat: String(x.cat || ''), desc: String(x.desc || ''), date: String(x.date || today()), createdAt: +x.createdAt || 0 };
       });
-      loaded.exp = true;
+      fromCache = !!(snap.metadata && snap.metadata.fromCache);
       pending = !!(snap.metadata && snap.metadata.hasPendingWrites);
+      connError = '';
+      if (!fromCache || snap.docs.length) loaded.exp = true;
       renderAll();
-    }, fail('Error de sincronización'));
+    }, function (err) {
+      connError = (err && err.code) || 'error';
+      toast('Error de sincronización (' + connError + ')');
+      renderAll();
+    });
     unsubMeta = onSnapshot(setRef(), function (snap) {
       var d = snap.exists() ? snap.data() : null;
       state.customCats = (d && Array.isArray(d.customCats)) ? d.customCats : [];
       loaded.meta = true;
       renderAll();
-    }, fail('Error de sincronización'));
+    }, function (err) {
+      connError = (err && err.code) || 'error';
+      renderAll();
+    });
   }
 
   /* ---------- Inicio ---------- */
