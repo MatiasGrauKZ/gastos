@@ -257,6 +257,14 @@
   .sheet.edit .field-title { margin: 14px 0 6px; }
   .sheet .row2 button.go { background: var(--brand); color: var(--brand-ink); }
   .hint { color: var(--ink-soft); font-size: 13px; margin: -2px 0 8px; }
+  .seg.two { grid-template-columns: 1fr 1fr; margin-bottom: 0; }
+  .cardbox { background: var(--surface); border-radius: 18px; padding: 14px 16px; margin-bottom: 10px; }
+  .cb-row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 4px 0; }
+  .cb-row b { font-family: var(--display); font-variant-numeric: tabular-nums; }
+  .cb-row.big { font-weight: 700; padding-bottom: 8px; margin-bottom: 4px; border-bottom: 1px solid var(--line); }
+  .cb-row.big b { font-size: 26px; font-weight: 800; letter-spacing: -0.02em; }
+  .cb-row.sub { padding-left: 18px; font-size: 14px; color: var(--ink-soft); }
+  .cb-row.sub b { font-size: 15px; color: var(--ink); }
   [hidden] { display: none !important; }
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
   @media (max-width: 360px) { #amount { font-size: 44px; } .cats { grid-template-columns: repeat(2, 1fr); } }
@@ -319,7 +327,15 @@
       <div class="preview" id="cuotaPreview"></div>
       <div class="field-title">¿Cuándo se paga la primera cuota?</div>
       <select class="input" id="startMonth" aria-label="Mes de la primera cuota"></select>
+      <div class="field-title">¿Para quién es la compra?</div>
+      <div class="seg two" role="group" aria-label="Para quién es">
+        <button type="button" id="forMe" aria-pressed="true">🙋 Para mí</button>
+        <button type="button" id="forOther" aria-pressed="false">🤝 Para otra persona</button>
+      </div>
+      <input class="input" id="person" list="people" type="text" maxlength="30" autocomplete="off" placeholder="¿Quién? (ej: Mamá)" style="margin-top:8px" hidden>
+      <p class="help" id="otherHelp" hidden>Va a figurar en el total de la tarjeta, pero no se descuenta de tu balance.</p>
     </div>
+    <datalist id="people"></datalist>
 
     <button class="btn-main" id="save" type="button">Guardar gasto</button>
 
@@ -345,9 +361,9 @@
         <div>Ingresos<b id="income">$ 0</b></div>
         <div>Gastos<b id="spent">$ 0</b></div>
         <div>Ahorro e inversión<b id="saved">$ 0</b></div>
-        <div>💳 Tarjeta<b id="cardTotal">$ 0</b></div>
+        <div>💳 Mi tarjeta<b id="cardTotal">$ 0</b></div>
       </div>
-      <div class="note">Balance = ingresos − gastos − ahorro e inversión − tarjeta</div>
+      <div class="note">Balance = ingresos − gastos − ahorro e inversión − mi parte de la tarjeta (lo de otras personas no cuenta)</div>
       <div class="note" id="balNoCard" style="margin-top:4px"></div>
     </div>
 
@@ -357,6 +373,12 @@
     <div class="breakdown" id="breakdown"></div>
 
     <h3 class="sec-title" id="titleCard">💳 Tarjeta de crédito</h3>
+    <div class="cardbox" id="cardBox">
+      <div class="cb-row big"><span id="cbTitle">Total a pagar de la tarjeta</span><b id="cbTotal">$ 0</b></div>
+      <div class="cb-row"><span>🙋 Lo mío</span><b id="cbMine">$ 0</b></div>
+      <div class="cb-row" id="cbOthersRow"><span>🤝 De otras personas</span><b id="cbOthers">$ 0</b></div>
+      <div id="cbPeople"></div>
+    </div>
     <p class="help" id="cardInfo" style="margin:0 0 8px"></p>
     <div class="items" id="cardItems"></div>
 
@@ -438,6 +460,12 @@
       <div class="preview" id="edPreview"></div>
       <div class="field-title">Mes de la primera cuota</div>
       <select class="input" id="edStart" aria-label="Mes de la primera cuota"></select>
+      <div class="field-title">¿Para quién es la compra?</div>
+      <div class="seg two" role="group" aria-label="Para quién es">
+        <button type="button" id="edForMe" aria-pressed="true">🙋 Para mí</button>
+        <button type="button" id="edForOther" aria-pressed="false">🤝 Para otra persona</button>
+      </div>
+      <input class="input" id="edPerson" list="people" type="text" maxlength="30" autocomplete="off" placeholder="¿Quién? (ej: Mamá)" style="margin-top:8px" hidden>
     </div>
     <div class="row2" style="margin-top:22px"><button type="button" id="edCancel">Cancelar</button><button type="button" class="go" id="edSave">Guardar cambios</button></div>
   </div>
@@ -586,9 +614,11 @@ const firebaseConfig = {
     });
     return out;
   }
-  function pendingAfter(month) {
+  function pendingAfter(month, which) {
     var sum = 0;
     state.cards.forEach(function (c) {
+      if (which === 'others' && !c.other) return;
+      if (which === 'mine' && c.other) return;
       for (var k = 0; k < c.cuotas; k++) {
         if (monthIndex(addMonths(c.startMonth, k)) > monthIndex(month)) sum += cuotaAmount(c.total, c.cuotas, k);
       }
@@ -676,7 +706,15 @@ const firebaseConfig = {
   document.querySelectorAll('nav button').forEach(function (b) {
     b.addEventListener('click', function () { showTab(b.dataset.tab); });
   });
+  function renderPeople() {
+    var dl = $('people'); dl.textContent = '';
+    var seen = {};
+    state.cards.forEach(function (c) {
+      if (c.other && c.person && !seen[c.person]) { seen[c.person] = 1; dl.appendChild(el('option', { value: c.person })); }
+    });
+  }
   function renderAll() {
+    renderPeople();
     renderCats(); renderRecent(); renderSettings();
     if (!$('view-sum').hidden) renderSummary();
   }
@@ -741,7 +779,7 @@ const firebaseConfig = {
     var cat = catById(c.cat), title = c.desc || cat.name;
     return rowBase({
       emoji: cat.emoji, color: cat.color, title: title,
-      sub: '💳 ' + cat.name + ' · ' + shortDate(c.date) + ' · ' + c.cuotas + (c.cuotas === 1 ? ' cuota' : ' cuotas') + ' de ' + fmt(cuotaAmount(c.total, c.cuotas, 0)),
+      sub: '💳 ' + cat.name + ' · ' + shortDate(c.date) + ' · ' + c.cuotas + (c.cuotas === 1 ? ' cuota' : ' cuotas') + ' de ' + fmt(cuotaAmount(c.total, c.cuotas, 0)) + (c.other ? ' · 🤝 ' + (c.person || 'Otra persona') : ''),
       amountText: fmt(c.total), amountClass: 'a cardc',
       onEdit: function () { openEditor('card', c); },
       onDelete: function () { askDeleteCard(c); }
@@ -752,7 +790,7 @@ const firebaseConfig = {
     var c = r.card, cat = catById(c.cat), title = c.desc || cat.name;
     return rowBase({
       emoji: cat.emoji, color: cat.color, title: title,
-      sub: '💳 Cuota ' + (r.k + 1) + ' de ' + c.cuotas + ' · ' + cat.name,
+      sub: '💳 Cuota ' + (r.k + 1) + ' de ' + c.cuotas + ' · ' + cat.name + (c.other ? ' · 🤝 ' + (c.person || 'Otra persona') : ''),
       amountText: fmt(r.amount), amountClass: 'a cardc',
       onEdit: function () { openEditor('card', c); },
       onDelete: function () { askDeleteCard(c); }
@@ -769,6 +807,16 @@ const firebaseConfig = {
     if (!list.length) { box.appendChild(el('div', { class: 'empty', text: 'Todavía no cargaste nada. Elegí gasto, ingreso o tarjeta, poné un monto y una categoría, y guardá.' })); return; }
     list.forEach(function (x) { box.appendChild(x.card ? cardPurchaseRow(x.d) : itemRow(x.d)); });
   }
+
+  var cardOther = false;
+  function setOther(v) {
+    cardOther = v;
+    $('forMe').setAttribute('aria-pressed', v ? 'false' : 'true');
+    $('forOther').setAttribute('aria-pressed', v ? 'true' : 'false');
+    $('person').hidden = !v; $('otherHelp').hidden = !v;
+  }
+  $('forMe').addEventListener('click', function () { setOther(false); });
+  $('forOther').addEventListener('click', function () { setOther(true); $('person').focus(); });
 
   var CUOTA_OPTS = [1, 3, 6, 9, 12, 18, 24];
   function renderChips() {
@@ -797,7 +845,7 @@ const firebaseConfig = {
     if (mode === 'card') {
       var n = parseInt($('cuotas').value, 10);
       if (!(n >= 1 && n <= 60)) { toast('Poné la cantidad de cuotas (de 1 a 60)'); $('cuotas').focus(); return; }
-      var card = { total: amount, cuotas: n, cat: selectedCat, desc: $('desc').value.trim(), date: date, startMonth: $('startMonth').value || monthOf(date), createdAt: Date.now() };
+      var card = { total: amount, cuotas: n, cat: selectedCat, desc: $('desc').value.trim(), date: date, startMonth: $('startMonth').value || monthOf(date), other: cardOther, person: cardOther ? $('person').value.trim() : '', createdAt: Date.now() };
       setDoc(cardRef(uid()), card).catch(fail('No se pudo guardar'));
       toast('Guardado: ' + fmt(amount) + ' en ' + n + (n === 1 ? ' cuota' : ' cuotas'));
     } else {
@@ -806,7 +854,7 @@ const firebaseConfig = {
       toast('Guardado: ' + fmt(amount) + ' en ' + catById(selectedCat).name);
     }
     $('amount').value = ''; $('desc').value = ''; $('date').value = today(); selectedCat = null;
-    if (mode === 'card') { $('cuotas').value = '3'; refreshStartMonths(true); updatePreview(); }
+    if (mode === 'card') { $('cuotas').value = '3'; $('person').value = ''; setOther(false); refreshStartMonths(true); updatePreview(); }
     renderCats(); $('amount').focus();
   });
 
@@ -834,22 +882,31 @@ const firebaseConfig = {
       }
     });
 
-    /* Tarjeta: se muestra aparte, fuera del total de gastos */
+    /* Tarjeta: se muestra aparte. Lo de otras personas no afecta tu balance */
     var cardRows = showAll ? cuotasUntil(nowM) : cuotasInMonth(monthKey);
-    var cardTot = 0;
-    cardRows.forEach(function (r) { cardTot += r.amount; });
-    cardTot = Math.round(cardTot * 100) / 100;
-    var pend = pendingAfter(showAll ? nowM : monthKey);
+    var cardAll = 0, cardMine = 0, cardOthers = 0, byPerson = {};
+    cardRows.forEach(function (r) {
+      cardAll += r.amount;
+      if (r.card.other) {
+        cardOthers += r.amount;
+        var nm = r.card.person || 'Otra persona';
+        byPerson[nm] = (byPerson[nm] || 0) + r.amount;
+      } else cardMine += r.amount;
+    });
+    function r2(n) { return Math.round(n * 100) / 100; }
+    cardAll = r2(cardAll); cardMine = r2(cardMine); cardOthers = r2(cardOthers);
+    var refM = showAll ? nowM : monthKey;
+    var pend = pendingAfter(refM), pendOthers = pendingAfter(refM, 'others');
 
-    var balNo = Math.round((income - spent - saved) * 100) / 100;
-    var balance = Math.round((balNo - cardTot) * 100) / 100;
+    var balNo = r2(income - spent - saved);
+    var balance = r2(balNo - cardMine);
     $('balance').textContent = fmt(balance);
     $('balance').classList.toggle('neg', balance < 0);
     $('income').textContent = fmt(income);
     $('spent').textContent = fmt(spent);
     $('saved').textContent = fmt(saved);
-    $('cardTotal').textContent = fmt(cardTot);
-    $('balNoCard').textContent = cardTot > 0 ? 'Sin contar la tarjeta: ' + fmt(balNo) : '';
+    $('cardTotal').textContent = fmt(cardMine);
+    $('balNoCard').textContent = cardMine > 0 ? 'Sin contar mi tarjeta: ' + fmt(balNo) : '';
     if (catFilter && !totOut[catFilter] && !totIn[catFilter]) catFilter = null;
 
     function drawBreakdown(box, totals, base) {
@@ -877,10 +934,19 @@ const firebaseConfig = {
 
     /* Sección de tarjeta */
     var showCard = cardRows.length > 0 || pend > 0;
-    $('titleCard').hidden = $('cardInfo').hidden = $('cardItems').hidden = !showCard;
-    var info = (showAll ? 'Cuotas pagadas hasta hoy: ' : 'Cuotas de este mes: ') + fmt(cardTot) + '.';
-    if (pend > 0) info += ' Te quedan ' + fmt(pend) + ' en cuotas para los próximos meses.';
+    $('titleCard').hidden = $('cardBox').hidden = $('cardInfo').hidden = $('cardItems').hidden = !showCard;
+    $('cbTitle').textContent = showAll ? 'Total de cuotas hasta hoy' : 'Total a pagar de la tarjeta este mes';
+    $('cbTotal').textContent = fmt(cardAll);
+    $('cbMine').textContent = fmt(cardMine);
+    $('cbOthers').textContent = fmt(cardOthers);
+    $('cbOthersRow').hidden = cardOthers <= 0;
+    var pb = $('cbPeople'); pb.textContent = '';
+    Object.keys(byPerson).sort(function (x, y) { return byPerson[y] - byPerson[x]; }).forEach(function (nm) {
+      pb.appendChild(el('div', { class: 'cb-row sub' }, [el('span', { text: nm }), el('b', { text: fmt(r2(byPerson[nm])) })]));
+    });
+    var info = pend > 0 ? 'Te quedan ' + fmt(pend) + ' en cuotas para los próximos meses' + (pendOthers > 0 ? ' (de los cuales ' + fmt(pendOthers) + ' son de otras personas)' : '') + '.' : '';
     $('cardInfo').textContent = info;
+    $('cardInfo').hidden = !showCard || !info;
     var ci = $('cardItems'); ci.textContent = '';
     cardRows.slice().sort(function (a, b) { return sortDesc(a.card, b.card); }).forEach(function (r) { ci.appendChild(cuotaRow(r)); });
 
@@ -930,7 +996,15 @@ const firebaseConfig = {
 
   /* ---------- Ajustes ---------- */
   /* ---------- Editar movimientos ---------- */
-  var editing = null;
+  var editing = null, edOther = false;
+  function setEdOther(v) {
+    edOther = v;
+    $('edForMe').setAttribute('aria-pressed', v ? 'false' : 'true');
+    $('edForOther').setAttribute('aria-pressed', v ? 'true' : 'false');
+    $('edPerson').hidden = !v;
+  }
+  $('edForMe').addEventListener('click', function () { setEdOther(false); });
+  $('edForOther').addEventListener('click', function () { setEdOther(true); $('edPerson').focus(); });
   function catOptions(select, kinds, selectedId) {
     select.textContent = '';
     var list = allCats();
@@ -963,6 +1037,7 @@ const firebaseConfig = {
     if (isCard) {
       $('edCuotas').value = String(rec.cuotas);
       fillStartMonths($('edStart'), rec.date, rec.startMonth);
+      setEdOther(!!rec.other); $('edPerson').value = rec.person || '';
       updateEdPreview();
     }
     $('editor').hidden = false;
@@ -986,7 +1061,7 @@ const firebaseConfig = {
     if (editing.type === 'card') {
       var n = parseInt($('edCuotas').value, 10);
       if (!(n >= 1 && n <= 60)) { toast('Poné la cantidad de cuotas (de 1 a 60)'); return; }
-      data = { total: amount, cuotas: n, cat: common.cat, desc: common.desc, date: date, startMonth: $('edStart').value || monthOf(date) };
+      data = { total: amount, cuotas: n, cat: common.cat, desc: common.desc, date: date, startMonth: $('edStart').value || monthOf(date), other: edOther, person: edOther ? $('edPerson').value.trim() : '' };
       ref = cardRef(editing.id);
     } else {
       data = { amount: amount, cat: common.cat, desc: common.desc, date: date };
@@ -1057,7 +1132,7 @@ const firebaseConfig = {
     state.cards.forEach(function (c) {
       var cc = catById(c.cat);
       for (var k = 0; k < c.cuotas; k++) {
-        rows.push([addMonths(c.startMonth, k) + '-01', 'Tarjeta', cc.name, (c.desc || cc.name) + ' (cuota ' + (k + 1) + '/' + c.cuotas + ')', String(cuotaAmount(c.total, c.cuotas, k)).replace('.', ',')]);
+        rows.push([addMonths(c.startMonth, k) + '-01', c.other ? 'Tarjeta (otra persona)' : 'Tarjeta', cc.name, (c.desc || cc.name) + ' (cuota ' + (k + 1) + '/' + c.cuotas + ')' + (c.other && c.person ? ' - ' + c.person : ''), String(cuotaAmount(c.total, c.cuotas, k)).replace('.', ',')]);
       }
     });
     var csv = rows.map(function (r) {
@@ -1088,11 +1163,11 @@ const firebaseConfig = {
     var cardRecs = [];
     (d.cards || []).forEach(function (c) {
       if (c && c.id && c.total > 0 && c.cuotas >= 1 && c.cat && /^\d{4}-\d{2}-\d{2}$/.test(c.date)) {
-        cardRecs.push({ id: String(c.id).replace(/[^\w-]/g, '_'), total: +c.total, cuotas: Math.min(60, parseInt(c.cuotas, 10)), cat: String(c.cat), desc: String(c.desc || '').slice(0, 120), date: c.date, startMonth: /^\d{4}-\d{2}$/.test(c.startMonth) ? c.startMonth : monthOf(c.date), createdAt: +c.createdAt || Date.now() });
+        cardRecs.push({ id: String(c.id).replace(/[^\w-]/g, '_'), total: +c.total, cuotas: Math.min(60, parseInt(c.cuotas, 10)), cat: String(c.cat), desc: String(c.desc || '').slice(0, 120), date: c.date, startMonth: /^\d{4}-\d{2}$/.test(c.startMonth) ? c.startMonth : monthOf(c.date), other: !!c.other, person: String(c.person || '').slice(0, 30), createdAt: +c.createdAt || Date.now() });
       }
     });
     await batchRun(cardRecs, function (b, r) {
-      b.set(cardRef(r.id), { total: r.total, cuotas: r.cuotas, cat: r.cat, desc: r.desc, date: r.date, startMonth: r.startMonth, createdAt: r.createdAt });
+      b.set(cardRef(r.id), { total: r.total, cuotas: r.cuotas, cat: r.cat, desc: r.desc, date: r.date, startMonth: r.startMonth, other: r.other, person: r.person, createdAt: r.createdAt });
     });
     return recs.length + cardRecs.length;
   }
@@ -1256,6 +1331,7 @@ const firebaseConfig = {
           cuotas: Math.max(1, Math.min(60, parseInt(x.cuotas, 10) || 1)),
           cat: String(x.cat || ''), desc: String(x.desc || ''), date: date,
           startMonth: /^\d{4}-\d{2}$/.test(x.startMonth || '') ? x.startMonth : monthOf(date),
+          other: !!x.other, person: String(x.person || ''),
           createdAt: +x.createdAt || 0
         };
       });
