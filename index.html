@@ -196,7 +196,7 @@
     background: var(--surface); border-top: 1px solid var(--line);
     padding: 8px 12px calc(8px + env(safe-area-inset-bottom, 0px));
   }
-  nav .inner { max-width: 560px; margin: 0 auto; display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  nav .inner { max-width: 560px; margin: 0 auto; display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
   nav button {
     border: 0; background: transparent; border-radius: 14px; padding: 8px 4px; cursor: pointer;
     display: flex; flex-direction: column; align-items: center; gap: 1px; font-size: 13px; color: var(--ink-soft);
@@ -265,6 +265,36 @@
   .cb-row.big b { font-size: 26px; font-weight: 800; letter-spacing: -0.02em; }
   .cb-row.sub { padding-left: 18px; font-size: 14px; color: var(--ink-soft); }
   .cb-row.sub b { font-size: 15px; color: var(--ink); }
+  /* ---------- Cobros, repetidos y gráficos ---------- */
+  .pill { display: inline-block; margin-top: 6px; border: 0; border-radius: 99px; padding: 5px 11px; font-size: 12px; font-weight: 500; background: var(--surface-2); cursor: pointer; }
+  .pill.on { background: #d6f1e2; color: #14502f; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .pill.on { background: #1f4d39; color: #bff0d6; } }
+  :root[data-theme="dark"] .pill.on { background: #1f4d39; color: #bff0d6; }
+  .item.paid .a { opacity: .55; text-decoration: line-through; }
+  .cb-right { display: inline-flex; align-items: center; gap: 8px; }
+  .cb-right .pill { margin-top: 0; }
+  .repeat { display: flex; align-items: center; gap: 10px; margin-top: 18px; padding: 12px 14px; background: var(--surface); border-radius: 14px; cursor: pointer; font-weight: 500; }
+  .repeat input { width: 22px; height: 22px; accent-color: var(--brand); flex: none; }
+  .panel { background: var(--surface); border-radius: 20px; padding: 16px; margin-top: 14px; }
+  .panel h3 { font-size: 18px; margin-bottom: 10px; }
+  .chart-scroll { overflow-x: auto; }
+  .ax { stroke: var(--line); stroke-width: 1; }
+  .axt { fill: var(--ink-soft); font-size: 10px; font-family: var(--body); }
+  .c-in { fill: #2f9e63; } .c-out { fill: #e07a5f; } .c-save { fill: #3d85c6; } .c-card { fill: #6b5bd2; } .c-other { fill: #b9aef7; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; color: var(--ink-soft); margin-top: 8px; }
+  .legend i { display: inline-block; width: 11px; height: 11px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+  .lg-list { display: grid; gap: 6px; margin-top: 12px; }
+  .lg-row { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+  .lg-row i { width: 12px; height: 12px; border-radius: 3px; flex: none; }
+  .lg-row .nm { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .lg-row b { font-variant-numeric: tabular-nums; }
+  .lg-row .pc { width: 40px; text-align: right; color: var(--ink-soft); font-size: 13px; }
+  .mt { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 14px; min-width: 420px; }
+  .mt th, .mt td { padding: 7px 6px; text-align: right; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+  .mt th:first-child, .mt td:first-child { text-align: left; text-transform: capitalize; }
+  .mt th { color: var(--ink-soft); font-weight: 500; }
+  .mt td.neg { color: var(--danger); font-weight: 700; } .mt td.pos { font-weight: 700; }
+  .empty-chart { text-align: center; color: var(--ink-soft); padding: 26px 8px; }
   [hidden] { display: none !important; }
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
   @media (max-width: 360px) { #amount { font-size: 44px; } .cats { grid-template-columns: repeat(2, 1fr); } }
@@ -319,6 +349,8 @@
 
     <div class="field-title" id="dateTitle">Fecha</div>
     <input class="input" id="date" type="date">
+
+    <label class="repeat" id="repeatWrap"><input type="checkbox" id="repeat"> <span>🔁 Repetir todos los meses<br><small style="font-weight:400;color:var(--ink-soft)">Se carga solo cada mes, el mismo día. Lo pausás o borrás en Ajustes.</small></span></label>
 
     <div id="cardFields" hidden>
       <div class="field-title">Cantidad de cuotas</div>
@@ -378,6 +410,7 @@
       <div class="cb-row"><span>🙋 Lo mío</span><b id="cbMine">$ 0</b></div>
       <div class="cb-row" id="cbOthersRow"><span>🤝 De otras personas</span><b id="cbOthers">$ 0</b></div>
       <div id="cbPeople"></div>
+      <div class="cb-row" id="cbOwedRow"><span>⏳ Falta cobrar</span><b id="cbOwed">$ 0</b></div>
     </div>
     <p class="help" id="cardInfo" style="margin:0 0 8px"></p>
     <div class="items" id="cardItems"></div>
@@ -390,6 +423,44 @@
     <div class="items" id="items"></div>
   </section>
 
+  <!-- ============ GRÁFICOS ============ -->
+  <section id="view-chart" aria-label="Gráficos" hidden>
+    <h2>Gráficos</h2>
+
+    <div class="panel">
+      <h3>Ingresos y gastos por mes</h3>
+      <div class="cuotas" id="rangeChips"></div>
+      <div class="chart-scroll" style="margin-top:10px"><div id="chartMonthly"></div></div>
+      <div class="legend">
+        <span><i style="background:#2f9e63"></i>Ingresos</span>
+        <span><i style="background:#e07a5f"></i>Gastos (con mi tarjeta)</span>
+        <span><i style="background:#3d85c6"></i>Ahorro e inversión</span>
+      </div>
+      <div class="chart-scroll"><div id="monthTable"></div></div>
+    </div>
+
+    <div class="panel">
+      <h3>¿En qué se va la plata?</h3>
+      <div class="month-nav" style="margin-bottom:6px">
+        <button type="button" id="cPrev" aria-label="Mes anterior">◀</button>
+        <div class="label"><strong id="cLabel"></strong></div>
+        <button type="button" id="cNext" aria-label="Mes siguiente">▶</button>
+      </div>
+      <div id="chartDonut"></div>
+      <div class="lg-list" id="donutLegend"></div>
+    </div>
+
+    <div class="panel">
+      <h3>💳 Tarjeta: próximos meses</h3>
+      <div class="chart-scroll"><div id="chartCard"></div></div>
+      <div class="legend">
+        <span><i style="background:#6b5bd2"></i>Lo mío</span>
+        <span><i style="background:#b9aef7"></i>De otras personas</span>
+      </div>
+      <p class="help" id="cardChartNote"></p>
+    </div>
+  </section>
+
   <!-- ============ AJUSTES ============ -->
   <section id="view-set" aria-label="Ajustes" hidden>
     <h2 style="margin-bottom:6px">Ajustes</h2>
@@ -400,6 +471,10 @@
       <p class="help" id="pingOut" style="margin:0"></p>
       <button class="btn-sec" id="logout" type="button">🚪 Cerrar sesión</button>
     </div>
+
+    <div class="field-title">🔁 Movimientos que se repiten</div>
+    <p class="help" style="margin:0 0 8px">Para crear uno, al cargar un gasto o ingreso activá "Repetir todos los meses".</p>
+    <div class="items" id="recList"></div>
 
     <div class="field-title">Copia de seguridad</div>
     <p class="help" style="margin:0 0 8px">Tus datos ya están guardados en tu cuenta. Esto es un extra por si querés tener una copia en tu compu.</p>
@@ -434,6 +509,7 @@
   <div class="inner" role="tablist">
     <button type="button" role="tab" data-tab="add" aria-selected="true"><span class="em">➕</span>Cargar</button>
     <button type="button" role="tab" data-tab="sum" aria-selected="false"><span class="em">📊</span>Resumen</button>
+    <button type="button" role="tab" data-tab="chart" aria-selected="false"><span class="em">📈</span>Gráficos</button>
     <button type="button" role="tab" data-tab="set" aria-selected="false"><span class="em">⚙️</span>Ajustes</button>
   </div>
 </nav>
@@ -452,8 +528,15 @@
     <select class="input" id="edCat" aria-label="Categoría"></select>
     <div class="field-title">Descripción</div>
     <input class="input" id="edDesc" type="text" maxlength="120" autocomplete="off">
-    <div class="field-title" id="edDateL">Fecha</div>
-    <input class="input" id="edDate" type="date">
+    <div id="edDateWrap">
+      <div class="field-title" id="edDateL">Fecha</div>
+      <input class="input" id="edDate" type="date">
+    </div>
+    <div id="edDayWrap" hidden>
+      <div class="field-title">Día del mes en que se carga</div>
+      <input class="input" id="edDay" type="text" inputmode="numeric" autocomplete="off" placeholder="1 a 31">
+      <p class="help">Los cambios valen para los meses que todavía no se cargaron. Si el mes tiene menos días, se carga el último.</p>
+    </div>
     <div id="edCardFields" hidden>
       <div class="field-title">Cantidad de cuotas</div>
       <input class="input" id="edCuotas" type="text" inputmode="numeric" autocomplete="off">
@@ -652,16 +735,19 @@ const firebaseConfig = {
     } catch (e) { db = getFirestore(app); }
   }
 
-  var state = { expenses: [], customCats: [], cards: [] };
+  var state = { expenses: [], customCats: [], cards: [], recurring: [] };
+  var srv = { exp: false, rec: false }, generating = false;
   var loaded = { exp: false, meta: false };
   var pending = false, fromCache = false, connError = '', loadTimer = null;
-  var userId = null, unsubExp = null, unsubMeta = null, unsubCards = null;
+  var userId = null, unsubExp = null, unsubMeta = null, unsubCards = null, unsubRec = null;
 
   function expCol() { return collection(db, 'users', userId, 'expenses'); }
   function expRef(id) { return doc(db, 'users', userId, 'expenses', id); }
   function setRef() { return doc(db, 'users', userId, 'meta', 'settings'); }
   function cardCol() { return collection(db, 'users', userId, 'cards'); }
   function cardRef(id) { return doc(db, 'users', userId, 'cards', id); }
+  function recCol() { return collection(db, 'users', userId, 'recurring'); }
+  function recRef(id) { return doc(db, 'users', userId, 'recurring', id); }
   function isLoaded() { return loaded.exp; }
   function fail(prefix) { return function (err) { toast(prefix + ((err && err.code) ? ' (' + err.code + ')' : '')); }; }
 
@@ -695,11 +781,12 @@ const firebaseConfig = {
   /* ---------- Navegación ---------- */
   function setScreen(s) { document.body.className = 's-' + s; }
   function showTab(name) {
-    ['add', 'sum', 'set'].forEach(function (t) { $('view-' + t).hidden = (t !== name); });
+    ['add', 'sum', 'chart', 'set'].forEach(function (t) { $('view-' + t).hidden = (t !== name); });
     document.querySelectorAll('nav button').forEach(function (b) {
       b.setAttribute('aria-selected', b.dataset.tab === name ? 'true' : 'false');
     });
     if (name === 'sum') renderSummary();
+    if (name === 'chart') renderCharts();
     if (name === 'set') renderSettings();
     window.scrollTo(0, 0);
   }
@@ -717,6 +804,8 @@ const firebaseConfig = {
     renderPeople();
     renderCats(); renderRecent(); renderSettings();
     if (!$('view-sum').hidden) renderSummary();
+    if (!$('view-chart').hidden) renderCharts();
+    runRecurring();
   }
 
   /* ---------- Cargar ---------- */
@@ -738,7 +827,12 @@ const firebaseConfig = {
       el('div', { class: 's', text: o.sub })
     ]);
     textBox.addEventListener('click', o.onEdit);
-    var row = el('div', { class: 'item' }, [
+    if (o.pill) {
+      var pb = el('button', { type: 'button', class: 'pill' + (o.pill.on ? ' on' : ''), text: o.pill.text });
+      pb.addEventListener('click', function (ev) { ev.stopPropagation(); o.pill.onClick(); });
+      textBox.appendChild(pb);
+    }
+    var row = el('div', { class: 'item' + (o.dim ? ' paid' : '') }, [
       el('div', { class: 'dot', style: 'background:' + hexAlpha(o.color, 0.2), text: o.emoji }),
       textBox,
       el('div', { class: o.amountClass, text: o.amountText })
@@ -755,7 +849,7 @@ const firebaseConfig = {
     var c = catById(e.cat), title = e.desc ? e.desc : c.name, inc = c.kind === 'in';
     return rowBase({
       emoji: c.emoji, color: c.color, title: title,
-      sub: c.name + ' · ' + shortDate(e.date),
+      sub: c.name + ' · ' + shortDate(e.date) + (e.rec ? ' · 🔁' : ''),
       amountText: (inc ? '+ ' : '') + fmt(e.amount), amountClass: inc ? 'a inc' : 'a',
       onEdit: function () { openEditor('exp', e); },
       onDelete: function () {
@@ -786,15 +880,38 @@ const firebaseConfig = {
     });
   }
 
+  function togglePaid(c, m) {
+    var list = (c.paidMonths || []).slice(), i = list.indexOf(m);
+    if (i >= 0) list.splice(i, 1); else list.push(m);
+    setDoc(cardRef(c.id), { paidMonths: list }, { merge: true }).catch(fail('No se pudo guardar'));
+  }
+  function togglePerson(name, month, markPaid) {
+    cuotasInMonth(month).forEach(function (r) {
+      var c = r.card;
+      if (!c.other || (c.person || 'Otra persona') !== name) return;
+      var list = (c.paidMonths || []).slice(), i = list.indexOf(month);
+      if (markPaid && i < 0) list.push(month);
+      else if (!markPaid && i >= 0) list.splice(i, 1);
+      else return;
+      setDoc(cardRef(c.id), { paidMonths: list }, { merge: true }).catch(fail('No se pudo guardar'));
+    });
+  }
+
   function cuotaRow(r) {
     var c = r.card, cat = catById(c.cat), title = c.desc || cat.name;
-    return rowBase({
+    var m = addMonths(c.startMonth, r.k), paid = !!c.other && (c.paidMonths || []).indexOf(m) >= 0;
+    var o = {
       emoji: cat.emoji, color: cat.color, title: title,
       sub: '💳 Cuota ' + (r.k + 1) + ' de ' + c.cuotas + ' · ' + cat.name + (c.other ? ' · 🤝 ' + (c.person || 'Otra persona') : ''),
       amountText: fmt(r.amount), amountClass: 'a cardc',
       onEdit: function () { openEditor('card', c); },
       onDelete: function () { askDeleteCard(c); }
-    });
+    };
+    if (c.other) {
+      o.dim = paid;
+      o.pill = { text: paid ? '✅ Cobrado' : '⏳ Sin cobrar · tocá para marcar', on: paid, onClick: function () { togglePaid(c, m); } };
+    }
+    return rowBase(o);
   }
 
   function renderRecent() {
@@ -851,9 +968,13 @@ const firebaseConfig = {
     } else {
       var rec = { amount: amount, cat: selectedCat, desc: $('desc').value.trim(), date: date, createdAt: Date.now() };
       setDoc(expRef(uid()), rec).catch(fail('No se pudo guardar'));
-      toast('Guardado: ' + fmt(amount) + ' en ' + catById(selectedCat).name);
+      if ($('repeat').checked) {
+        var rr = { amount: amount, cat: selectedCat, desc: rec.desc, day: parseInt(date.slice(8, 10), 10) || 1, startMonth: addMonths(monthOf(date), 1), active: true, generated: [], createdAt: Date.now() };
+        setDoc(recRef(uid()), rr).catch(fail('No se pudo programar'));
+        toast('Guardado. Se va a repetir todos los meses (día ' + rr.day + ')');
+      } else toast('Guardado: ' + fmt(amount) + ' en ' + catById(selectedCat).name);
     }
-    $('amount').value = ''; $('desc').value = ''; $('date').value = today(); selectedCat = null;
+    $('amount').value = ''; $('desc').value = ''; $('date').value = today(); selectedCat = null; $('repeat').checked = false;
     if (mode === 'card') { $('cuotas').value = '3'; $('person').value = ''; setOther(false); refreshStartMonths(true); updatePreview(); }
     renderCats(); $('amount').focus();
   });
@@ -884,17 +1005,35 @@ const firebaseConfig = {
 
     /* Tarjeta: se muestra aparte. Lo de otras personas no afecta tu balance */
     var cardRows = showAll ? cuotasUntil(nowM) : cuotasInMonth(monthKey);
-    var cardAll = 0, cardMine = 0, cardOthers = 0, byPerson = {};
+    function r2(n) { return Math.round(n * 100) / 100; }
+    var cardAll = 0, cardMine = 0, cardOthers = 0, owedNow = 0, byPerson = {};
     cardRows.forEach(function (r) {
       cardAll += r.amount;
       if (r.card.other) {
+        var nm = r.card.person || 'Otra persona', mm = addMonths(r.card.startMonth, r.k);
+        var paid = (r.card.paidMonths || []).indexOf(mm) >= 0;
         cardOthers += r.amount;
-        var nm = r.card.person || 'Otra persona';
-        byPerson[nm] = (byPerson[nm] || 0) + r.amount;
+        if (!paid) owedNow += r.amount;
+        var bp = byPerson[nm] || (byPerson[nm] = { total: 0, unpaid: 0 });
+        bp.total += r.amount;
+        if (!paid) bp.unpaid += r.amount;
       } else cardMine += r.amount;
     });
-    function r2(n) { return Math.round(n * 100) / 100; }
-    cardAll = r2(cardAll); cardMine = r2(cardMine); cardOthers = r2(cardOthers);
+    cardAll = r2(cardAll); cardMine = r2(cardMine); cardOthers = r2(cardOthers); owedNow = r2(owedNow);
+    /* Cobros pendientes de meses anteriores al que estás mirando */
+    var oldOwed = 0, oldBy = {};
+    if (!showAll) {
+      state.cards.forEach(function (c) {
+        if (!c.other) return;
+        for (var k = 0; k < c.cuotas; k++) {
+          var m2 = addMonths(c.startMonth, k);
+          if (monthIndex(m2) < monthIndex(monthKey) && monthIndex(m2) <= monthIndex(nowM) && (c.paidMonths || []).indexOf(m2) < 0) {
+            var amt = cuotaAmount(c.total, c.cuotas, k), nm2 = c.person || 'Otra persona';
+            oldOwed += amt; oldBy[nm2] = (oldBy[nm2] || 0) + amt;
+          }
+        }
+      });
+    }
     var refM = showAll ? nowM : monthKey;
     var pend = pendingAfter(refM), pendOthers = pendingAfter(refM, 'others');
 
@@ -933,7 +1072,7 @@ const firebaseConfig = {
     $('titleOut').hidden = !Object.keys(totOut).length;
 
     /* Sección de tarjeta */
-    var showCard = cardRows.length > 0 || pend > 0;
+    var showCard = cardRows.length > 0 || pend > 0 || oldOwed > 0;
     $('titleCard').hidden = $('cardBox').hidden = $('cardInfo').hidden = $('cardItems').hidden = !showCard;
     $('cbTitle').textContent = showAll ? 'Total de cuotas hasta hoy' : 'Total a pagar de la tarjeta este mes';
     $('cbTotal').textContent = fmt(cardAll);
@@ -941,10 +1080,23 @@ const firebaseConfig = {
     $('cbOthers').textContent = fmt(cardOthers);
     $('cbOthersRow').hidden = cardOthers <= 0;
     var pb = $('cbPeople'); pb.textContent = '';
-    Object.keys(byPerson).sort(function (x, y) { return byPerson[y] - byPerson[x]; }).forEach(function (nm) {
-      pb.appendChild(el('div', { class: 'cb-row sub' }, [el('span', { text: nm }), el('b', { text: fmt(r2(byPerson[nm])) })]));
+    Object.keys(byPerson).sort(function (x, y) { return byPerson[y].total - byPerson[x].total; }).forEach(function (nm) {
+      var bp = byPerson[nm], allPaid = r2(bp.unpaid) <= 0;
+      var left = el('span', { text: (allPaid ? '✅ ' : '') + nm + (!allPaid && bp.unpaid < bp.total ? ' (falta ' + fmt(r2(bp.unpaid)) + ')' : '') });
+      var right = el('span', { class: 'cb-right' }, [el('b', { text: fmt(r2(bp.total)) })]);
+      if (!showAll) {
+        var btn = el('button', { type: 'button', class: 'pill' + (allPaid ? ' on' : ''), text: allPaid ? '↩ Deshacer' : '✓ Cobré' });
+        btn.addEventListener('click', function () { togglePerson(nm, monthKey, !allPaid); });
+        right.appendChild(btn);
+      }
+      pb.appendChild(el('div', { class: 'cb-row sub' }, [left, right]));
     });
-    var info = pend > 0 ? 'Te quedan ' + fmt(pend) + ' en cuotas para los próximos meses' + (pendOthers > 0 ? ' (de los cuales ' + fmt(pendOthers) + ' son de otras personas)' : '') + '.' : '';
+    $('cbOwedRow').hidden = cardOthers <= 0;
+    $('cbOwed').textContent = owedNow > 0 ? fmt(owedNow) : '✅ Todo cobrado';
+    var parts = [];
+    if (oldOwed > 0) parts.push('De meses anteriores te falta cobrar ' + fmt(r2(oldOwed)) + ' (' + Object.keys(oldBy).map(function (n) { return n + ' ' + fmt(r2(oldBy[n])); }).join(', ') + ').');
+    if (pend > 0) parts.push('Te quedan ' + fmt(pend) + ' en cuotas para los próximos meses' + (pendOthers > 0 ? ' (de los cuales ' + fmt(pendOthers) + ' son de otras personas)' : '') + '.');
+    var info = parts.join(' ');
     $('cardInfo').textContent = info;
     $('cardInfo').hidden = !showCard || !info;
     var ci = $('cardItems'); ci.textContent = '';
@@ -983,6 +1135,7 @@ const firebaseConfig = {
     $('save').textContent = m === 'in' ? 'Guardar ingreso' : m === 'card' ? 'Guardar compra en cuotas' : 'Guardar gasto';
     $('desc').placeholder = m === 'in' ? 'Ej: sueldo de septiembre, venta de la bici' : m === 'card' ? 'Ej: heladera, zapatillas, celular' : 'Ej: nafta, verdulería, cuota del gym';
     $('cardFields').hidden = m !== 'card';
+    $('repeatWrap').hidden = m === 'card';
     $('dateTitle').textContent = m === 'card' ? 'Fecha de la compra' : 'Fecha';
     if (m === 'card') {
       if (!$('cuotas').value) $('cuotas').value = '3';
@@ -995,6 +1148,231 @@ const firebaseConfig = {
   $('modeIn').addEventListener('click', function () { setMode('in'); });
 
   /* ---------- Ajustes ---------- */
+  /* ---------- Gráficos ---------- */
+  var chartRange = 6, chartMonth = monthOf(today());
+  var COL = { card: '#6b5bd2', other: '#b9aef7', rest: '#8a9aa0' };
+  var SVGNS = 'http://www.w3.org/2000/svg';
+  function sv(tag, attrs, kids) {
+    var e = document.createElementNS(SVGNS, tag);
+    if (attrs) for (var k in attrs) e.setAttribute(k, attrs[k]);
+    (kids || []).forEach(function (c) { e.appendChild(c); });
+    return e;
+  }
+  function svText(x, y, str, anchor) {
+    var t = sv('text', { x: x, y: y, class: 'axt', 'text-anchor': anchor || 'middle' });
+    t.textContent = str; return t;
+  }
+  function short(n) {
+    var a = Math.abs(n), sg = n < 0 ? '-' : '';
+    if (a >= 1e6) return sg + '$' + (a / 1e6).toFixed(a >= 1e7 ? 0 : 1).replace('.', ',') + 'M';
+    if (a >= 1e3) return sg + '$' + Math.round(a / 1e3) + 'k';
+    return sg + '$' + Math.round(a);
+  }
+  function niceMax(v) {
+    if (v <= 0) return 1;
+    var p = Math.pow(10, Math.floor(Math.log(v) / Math.LN10)), f = v / p;
+    return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * p;
+  }
+  function shortMonth(ym) {
+    var p = ym.split('-');
+    return new Date(+p[0], +p[1] - 1, 1).toLocaleDateString('es-AR', { month: 'short' }).replace('.', '');
+  }
+  function statsFor(month) {
+    var income = 0, spent = 0, saved = 0, byCat = {};
+    state.expenses.forEach(function (e) {
+      if (monthOf(e.date) !== month) return;
+      var c = catById(e.cat);
+      if (c.kind === 'in') income += e.amount;
+      else { if (c.saving) saved += e.amount; else spent += e.amount; byCat[e.cat] = (byCat[e.cat] || 0) + e.amount; }
+    });
+    var mine = 0, others = 0;
+    cuotasInMonth(month).forEach(function (r) { if (r.card.other) others += r.amount; else mine += r.amount; });
+    return { income: income, spent: spent, saved: saved, mine: mine, others: others, byCat: byCat, balance: income - spent - saved - mine };
+  }
+  function drawBars(container, labels, groups, o) {
+    var n = labels.length, W = n * 58 + 48, H = 220, pl = 42, pb = 24, pt = 14, plotH = H - pb - pt;
+    var max = 0;
+    groups.forEach(function (g) {
+      var v = o.stacked ? g.reduce(function (a, b) { return a + b.v; }, 0) : Math.max.apply(null, g.map(function (x) { return x.v; }));
+      if (v > max) max = v;
+    });
+    var top = niceMax(max), gw = (W - pl - 6) / n;
+    var svg = sv('svg', { viewBox: '0 0 ' + W + ' ' + H, role: 'img', 'aria-label': o.label });
+    svg.style.width = '100%'; svg.style.minWidth = (o.minW || 0) + 'px'; svg.style.height = 'auto';
+    for (var i = 0; i <= 4; i++) {
+      var y = pt + plotH - plotH * i / 4;
+      svg.appendChild(sv('line', { x1: pl, x2: W - 4, y1: y, y2: y, class: 'ax' }));
+      svg.appendChild(svText(pl - 5, y + 3, short(top * i / 4), 'end'));
+    }
+    groups.forEach(function (g, gi) {
+      var gx = pl + gw * gi, cnt = o.stacked ? 1 : g.length;
+      var bw = Math.min(o.stacked ? 28 : 16, gw / (cnt + 1.2)), start = gx + (gw - bw * cnt) / 2, acc = 0;
+      g.forEach(function (b, j) {
+        var h = plotH * b.v / top;
+        var x = o.stacked ? start : start + bw * j;
+        var yy = o.stacked ? pt + plotH - plotH * (acc + b.v) / top : pt + plotH - h;
+        acc += b.v;
+        if (h > 0.4) {
+          var r = sv('rect', { x: x, y: yy, width: Math.max(1, bw - (o.stacked ? 0 : 1.5)), height: h, rx: 2, class: b.cls });
+          var t = sv('title'); t.textContent = b.name + ': ' + fmt(b.v); r.appendChild(t);
+          svg.appendChild(r);
+        }
+      });
+      if (o.stacked && acc > 0) svg.appendChild(svText(gx + gw / 2, pt + plotH - plotH * acc / top - 4, short(acc)));
+      svg.appendChild(svText(gx + gw / 2, H - 8, labels[gi]));
+    });
+    container.textContent = ''; container.appendChild(svg);
+  }
+
+  function renderCharts() {
+    var nowM = monthOf(today()), i;
+
+    /* 1) Ingresos y gastos por mes */
+    var chips = $('rangeChips'); chips.textContent = '';
+    [3, 6, 12].forEach(function (n) {
+      var b = el('button', { type: 'button', class: 'chip-n', 'aria-pressed': chartRange === n ? 'true' : 'false', text: n + ' meses' });
+      b.addEventListener('click', function () { chartRange = n; renderCharts(); });
+      chips.appendChild(b);
+    });
+    var months = [];
+    for (i = chartRange - 1; i >= 0; i--) months.push(addMonths(nowM, -i));
+    var stats = months.map(statsFor);
+    var labels = months.map(function (m, idx) { var l = shortMonth(m); return (idx === 0 || m.slice(5) === '01') ? l + " '" + m.slice(2, 4) : l; });
+    var groups = stats.map(function (st) {
+      return [
+        { cls: 'c-in', name: 'Ingresos', v: st.income },
+        { cls: 'c-out', name: 'Gastos (con mi tarjeta)', v: st.spent + st.mine },
+        { cls: 'c-save', name: 'Ahorro e inversión', v: st.saved }
+      ];
+    });
+    drawBars($('chartMonthly'), labels, groups, { stacked: false, minW: chartRange > 6 ? 640 : 0, label: 'Ingresos, gastos y ahorro por mes' });
+
+    var table = el('table', { class: 'mt' });
+    table.appendChild(el('thead', {}, [el('tr', {}, ['Mes', 'Ingresos', 'Gastos', 'Ahorro', 'Balance'].map(function (h) { return el('th', { text: h }); }))]));
+    var tb = el('tbody');
+    for (i = months.length - 1; i >= 0; i--) {
+      var st = stats[i], bal = Math.round(st.balance * 100) / 100;
+      tb.appendChild(el('tr', {}, [
+        el('td', { text: monthName(months[i]) }),
+        el('td', { text: fmt(st.income) }),
+        el('td', { text: fmt(Math.round((st.spent + st.mine) * 100) / 100) }),
+        el('td', { text: fmt(st.saved) }),
+        el('td', { class: bal < 0 ? 'neg' : 'pos', text: fmt(bal) })
+      ]));
+    }
+    table.appendChild(tb);
+    $('monthTable').textContent = ''; $('monthTable').appendChild(table);
+
+    /* 2) ¿En qué se va la plata? (dona del mes elegido) */
+    $('cLabel').textContent = monthName(chartMonth);
+    var st2 = statsFor(chartMonth);
+    var slices = Object.keys(st2.byCat).map(function (id) {
+      var c = catById(id); return { label: c.emoji + ' ' + c.name, v: st2.byCat[id], color: c.color };
+    });
+    if (st2.mine > 0) slices.push({ label: '💳 Tarjeta (mía)', v: st2.mine, color: COL.card });
+    slices.sort(function (a, b) { return b.v - a.v; });
+    if (slices.length > 8) {
+      var rest = slices.splice(7), sum = 0;
+      rest.forEach(function (x) { sum += x.v; });
+      slices.push({ label: 'Otras', v: sum, color: COL.rest });
+    }
+    var total = 0; slices.forEach(function (x) { total += x.v; });
+    var dBox = $('chartDonut'), lg = $('donutLegend');
+    dBox.textContent = ''; lg.textContent = '';
+    if (total <= 0) {
+      dBox.appendChild(el('div', { class: 'empty-chart', text: 'No hay gastos en este mes.' }));
+    } else {
+      var R = 78, C = 2 * Math.PI * R, cum = 0;
+      var svg = sv('svg', { viewBox: '0 0 220 220', role: 'img', 'aria-label': 'Gastos por categoría' });
+      svg.style.width = '100%'; svg.style.maxWidth = '260px'; svg.style.display = 'block'; svg.style.margin = '0 auto';
+      slices.forEach(function (x) {
+        var len = x.v / total * C;
+        var ci = sv('circle', { cx: 110, cy: 110, r: R, fill: 'none', stroke: x.color, 'stroke-width': 34, 'stroke-dasharray': len.toFixed(2) + ' ' + (C - len).toFixed(2), 'stroke-dashoffset': (-cum).toFixed(2), transform: 'rotate(-90 110 110)' });
+        var t = sv('title'); t.textContent = x.label + ': ' + fmt(x.v); ci.appendChild(t);
+        svg.appendChild(ci); cum += len;
+      });
+      var c1 = svText(110, 106, short(total)); c1.setAttribute('style', 'font-size:20px;font-weight:700;font-family:var(--display);fill:var(--ink)');
+      var c2 = svText(110, 124, 'gastado'); c2.setAttribute('style', 'font-size:12px');
+      svg.appendChild(c1); svg.appendChild(c2);
+      dBox.appendChild(svg);
+      slices.forEach(function (x) {
+        lg.appendChild(el('div', { class: 'lg-row' }, [
+          el('i', { style: 'background:' + x.color }),
+          el('span', { class: 'nm', text: x.label }),
+          el('b', { text: fmt(Math.round(x.v * 100) / 100) }),
+          el('span', { class: 'pc', text: Math.round(x.v / total * 100) + '%' })
+        ]));
+      });
+    }
+
+    /* 3) Tarjeta: próximos meses */
+    var cm = [], cl = [], cg = [], any = false;
+    for (i = 0; i < 6; i++) {
+      var m = addMonths(nowM, i), mine = 0, oth = 0;
+      cuotasInMonth(m).forEach(function (r) { if (r.card.other) oth += r.amount; else mine += r.amount; });
+      if (mine + oth > 0) any = true;
+      cm.push(m); cl.push(shortMonth(m) + (m.slice(5) === '01' || i === 0 ? " '" + m.slice(2, 4) : ''));
+      cg.push([{ cls: 'c-card', name: 'Lo mío', v: mine }, { cls: 'c-other', name: 'De otras personas', v: oth }]);
+    }
+    var cBox = $('chartCard');
+    if (!any) { cBox.textContent = ''; cBox.appendChild(el('div', { class: 'empty-chart', text: 'No tenés cuotas de tarjeta pendientes.' })); $('cardChartNote').textContent = ''; }
+    else {
+      drawBars(cBox, cl, cg, { stacked: true, minW: 0, label: 'Cuotas de tarjeta de los próximos meses' });
+      var pm = addMonths(nowM, -1), pa = pendingAfter(pm), po = pendingAfter(pm, 'others');
+      $('cardChartNote').textContent = 'En cuotas por pagar (desde este mes): ' + fmt(pa) + (po > 0 ? ' — de los cuales ' + fmt(po) + ' son de otras personas.' : '.');
+    }
+  }
+  $('cPrev').addEventListener('click', function () { chartMonth = addMonths(chartMonth, -1); renderCharts(); });
+  $('cNext').addEventListener('click', function () { chartMonth = addMonths(chartMonth, 1); renderCharts(); });
+
+  /* ---------- Movimientos que se repiten ---------- */
+  function dateFor(month, day) {
+    var p = month.split('-'), last = new Date(+p[0], +p[1], 0).getDate();
+    return month + '-' + String(Math.min(day, last)).padStart(2, '0');
+  }
+  function runRecurring() {
+    if (!userId || generating || !srv.exp || !srv.rec || !loaded.exp) return;
+    var nowM = monthOf(today()), items = [], have = {};
+    state.expenses.forEach(function (e) { have[e.id] = 1; });
+    state.recurring.forEach(function (r) {
+      if (!r.active) return;
+      var gen = r.generated.slice(), changed = false, guard = 0;
+      for (var m = r.startMonth; monthIndex(m) <= monthIndex(nowM) && guard < 36; m = addMonths(m, 1), guard++) {
+        if (gen.indexOf(m) >= 0) continue;
+        var id = 'r_' + r.id + '_' + m;
+        if (!have[id]) items.push({ t: 'e', id: id, data: { amount: r.amount, cat: r.cat, desc: r.desc, date: dateFor(m, r.day), createdAt: Date.now(), rec: r.id } });
+        gen.push(m); changed = true;
+      }
+      if (changed) items.push({ t: 'r', id: r.id, generated: gen });
+    });
+    if (!items.length) return;
+    generating = true;
+    batchRun(items, function (b, it) {
+      if (it.t === 'e') b.set(expRef(it.id), it.data);
+      else b.set(recRef(it.id), { generated: it.generated }, { merge: true });
+    }).then(function () { generating = false; }, function (err) { generating = false; fail('No se pudieron cargar los movimientos fijos')(err); });
+  }
+  function renderRecList() {
+    var box = $('recList'); box.textContent = '';
+    if (!state.recurring.length) { box.appendChild(el('div', { class: 'empty', text: 'Todavía no tenés movimientos que se repitan.' })); return; }
+    state.recurring.slice().sort(function (a, b) { return a.createdAt - b.createdAt; }).forEach(function (r) {
+      var c = catById(r.cat), inc = c.kind === 'in', title = r.desc || c.name;
+      box.appendChild(rowBase({
+        emoji: c.emoji, color: c.color, title: title,
+        sub: '🔁 Día ' + r.day + ' de cada mes · desde ' + monthName(r.startMonth) + (r.active ? '' : ' · pausado'),
+        amountText: (inc ? '+ ' : '') + fmt(r.amount), amountClass: inc ? 'a inc' : 'a', dim: !r.active,
+        pill: { text: r.active ? '⏸ Pausar' : '▶️ Reactivar', on: !r.active, onClick: function () { setDoc(recRef(r.id), { active: !r.active }, { merge: true }).catch(fail('No se pudo guardar')); } },
+        onEdit: function () { openEditor('rec', r); },
+        onDelete: function () {
+          ask('¿Dejar de repetir "' + title + '"? Lo que ya se cargó queda como está.', 'Dejar de repetir', function () {
+            deleteDoc(recRef(r.id)).catch(fail('No se pudo borrar'));
+            toast('Ya no se repite');
+          });
+        }
+      }));
+    });
+  }
+
   /* ---------- Editar movimientos ---------- */
   var editing = null, edOther = false;
   function setEdOther(v) {
@@ -1025,14 +1403,16 @@ const firebaseConfig = {
   }
   function openEditor(type, rec) {
     editing = { type: type, id: rec.id };
-    var isCard = type === 'card';
-    $('edTitle').textContent = isCard ? 'Editar compra en cuotas' : 'Editar movimiento';
+    var isCard = type === 'card', isRec = type === 'rec';
+    $('edTitle').textContent = isCard ? 'Editar compra en cuotas' : isRec ? 'Editar movimiento que se repite' : 'Editar movimiento';
     $('edAmountL').textContent = isCard ? 'Monto total de la compra' : 'Monto';
     $('edDateL').textContent = isCard ? 'Fecha de la compra' : 'Fecha';
     $('edAmount').value = String(isCard ? rec.total : rec.amount).replace('.', ',');
     catOptions($('edCat'), isCard ? ['out'] : ['out', 'in'], rec.cat);
     $('edDesc').value = rec.desc || '';
-    $('edDate').value = rec.date;
+    $('edDateWrap').hidden = isRec;
+    $('edDayWrap').hidden = !isRec;
+    if (isRec) $('edDay').value = String(rec.day); else $('edDate').value = rec.date;
     $('edCardFields').hidden = !isCard;
     if (isCard) {
       $('edCuotas').value = String(rec.cuotas);
@@ -1054,18 +1434,24 @@ const firebaseConfig = {
     if (!editing) return;
     var amount = parseAmount($('edAmount').value);
     if (!(amount > 0)) { toast('Poné un monto mayor a cero'); return; }
-    var date = $('edDate').value;
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { toast('Poné una fecha válida'); return; }
-    var common = { cat: $('edCat').value, desc: $('edDesc').value.trim(), date: date };
-    var ref, data;
-    if (editing.type === 'card') {
-      var n = parseInt($('edCuotas').value, 10);
-      if (!(n >= 1 && n <= 60)) { toast('Poné la cantidad de cuotas (de 1 a 60)'); return; }
-      data = { total: amount, cuotas: n, cat: common.cat, desc: common.desc, date: date, startMonth: $('edStart').value || monthOf(date), other: edOther, person: edOther ? $('edPerson').value.trim() : '' };
-      ref = cardRef(editing.id);
+    var cat = $('edCat').value, desc = $('edDesc').value.trim(), ref, data;
+    if (editing.type === 'rec') {
+      var day = parseInt($('edDay').value, 10);
+      if (!(day >= 1 && day <= 31)) { toast('El día tiene que ser de 1 a 31'); return; }
+      data = { amount: amount, cat: cat, desc: desc, day: day };
+      ref = recRef(editing.id);
     } else {
-      data = { amount: amount, cat: common.cat, desc: common.desc, date: date };
-      ref = expRef(editing.id);
+      var date = $('edDate').value;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { toast('Poné una fecha válida'); return; }
+      if (editing.type === 'card') {
+        var n = parseInt($('edCuotas').value, 10);
+        if (!(n >= 1 && n <= 60)) { toast('Poné la cantidad de cuotas (de 1 a 60)'); return; }
+        data = { total: amount, cuotas: n, cat: cat, desc: desc, date: date, startMonth: $('edStart').value || monthOf(date), other: edOther, person: edOther ? $('edPerson').value.trim() : '' };
+        ref = cardRef(editing.id);
+      } else {
+        data = { amount: amount, cat: cat, desc: desc, date: date };
+        ref = expRef(editing.id);
+      }
     }
     setDoc(ref, data, { merge: true }).catch(fail('No se pudieron guardar los cambios'));
     closeEditor();
@@ -1087,12 +1473,13 @@ const firebaseConfig = {
 
   function renderSettings() {
     renderSync();
+    renderRecList();
     var box = $('manage'); box.textContent = '';
     if (!state.customCats.length) { box.appendChild(el('span', { class: 'help', text: 'Todavía no creaste categorías propias.' })); return; }
     state.customCats.forEach(function (c) {
       var ch = el('button', { type: 'button', class: 'chip', text: c.emoji + ' ' + c.name + (c.kind === 'in' ? ' (ingreso)' : '') + '  ✕' });
       ch.addEventListener('click', function () {
-        var used = state.expenses.some(function (e) { return e.cat === c.id; });
+        var used = state.expenses.some(function (e) { return e.cat === c.id; }) || state.cards.some(function (e) { return e.cat === c.id; }) || state.recurring.some(function (e) { return e.cat === c.id; });
         if (used) { toast('"' + c.name + '" tiene movimientos. Borralos primero.'); return; }
         ask('¿Borrar la categoría "' + c.name + '"?', 'Borrar', function () {
           if (selectedCat === c.id) selectedCat = null;
@@ -1169,7 +1556,16 @@ const firebaseConfig = {
     await batchRun(cardRecs, function (b, r) {
       b.set(cardRef(r.id), { total: r.total, cuotas: r.cuotas, cat: r.cat, desc: r.desc, date: r.date, startMonth: r.startMonth, other: r.other, person: r.person, createdAt: r.createdAt });
     });
-    return recs.length + cardRecs.length;
+    var recRecs = [];
+    (d.recurring || []).forEach(function (r) {
+      if (r && r.id && r.amount > 0 && r.cat) {
+        recRecs.push({ id: String(r.id).replace(/[^\w-]/g, '_'), amount: +r.amount, cat: String(r.cat), desc: String(r.desc || '').slice(0, 120), day: Math.max(1, Math.min(31, parseInt(r.day, 10) || 1)), startMonth: /^\d{4}-\d{2}$/.test(r.startMonth || '') ? r.startMonth : monthOf(today()), active: r.active !== false, generated: Array.isArray(r.generated) ? r.generated.map(String) : [], createdAt: +r.createdAt || Date.now() });
+      }
+    });
+    await batchRun(recRecs, function (b, r) {
+      b.set(recRef(r.id), { amount: r.amount, cat: r.cat, desc: r.desc, day: r.day, startMonth: r.startMonth, active: r.active, generated: r.generated, createdAt: r.createdAt });
+    });
+    return recs.length + cardRecs.length + recRecs.length;
   }
   $('impJson').addEventListener('click', function () { $('file').click(); });
   $('file').addEventListener('change', function (ev) {
@@ -1214,6 +1610,7 @@ const firebaseConfig = {
       try {
         await batchRun(state.expenses.slice(), function (b, e) { b.delete(expRef(e.id)); });
         await batchRun(state.cards.slice(), function (b, c) { b.delete(cardRef(c.id)); });
+        await batchRun(state.recurring.slice(), function (b, r) { b.delete(recRef(r.id)); });
         await setDoc(setRef(), { customCats: [] });
         selectedCat = null; toast('Todo borrado');
       } catch (err) { toast('No se pudo borrar' + (err && err.code ? ' (' + err.code + ')' : '')); }
@@ -1294,11 +1691,12 @@ const firebaseConfig = {
     if (unsubExp) { unsubExp(); unsubExp = null; }
     if (unsubMeta) { unsubMeta(); unsubMeta = null; }
     if (unsubCards) { unsubCards(); unsubCards = null; }
+    if (unsubRec) { unsubRec(); unsubRec = null; }
   }
   function onUser(user) {
     stopListening();
-    state = { expenses: [], customCats: [], cards: [] };
-    loaded = { exp: false, meta: false };
+    state = { expenses: [], customCats: [], cards: [], recurring: [] };
+    loaded = { exp: false, meta: false, rec: false }; srv = { exp: false, rec: false };
     pending = false; fromCache = false; connError = '';
     clearTimeout(loadTimer);
     if (!user) { userId = null; $('pass').value = ''; setScreen('out'); return; }
@@ -1311,12 +1709,13 @@ const firebaseConfig = {
     unsubExp = onSnapshot(expCol(), function (snap) {
       state.expenses = snap.docs.map(function (d) {
         var x = d.data();
-        return { id: d.id, amount: +x.amount || 0, cat: String(x.cat || ''), desc: String(x.desc || ''), date: String(x.date || today()), createdAt: +x.createdAt || 0 };
+        return { id: d.id, amount: +x.amount || 0, cat: String(x.cat || ''), desc: String(x.desc || ''), date: String(x.date || today()), rec: String(x.rec || ''), createdAt: +x.createdAt || 0 };
       });
       fromCache = !!(snap.metadata && snap.metadata.fromCache);
       pending = !!(snap.metadata && snap.metadata.hasPendingWrites);
       connError = '';
       if (!fromCache || snap.docs.length) loaded.exp = true;
+      if (!fromCache) srv.exp = true;
       renderAll();
     }, function (err) {
       connError = (err && err.code) || 'error';
@@ -1332,9 +1731,26 @@ const firebaseConfig = {
           cat: String(x.cat || ''), desc: String(x.desc || ''), date: date,
           startMonth: /^\d{4}-\d{2}$/.test(x.startMonth || '') ? x.startMonth : monthOf(date),
           other: !!x.other, person: String(x.person || ''),
+          paidMonths: Array.isArray(x.paidMonths) ? x.paidMonths.map(String) : [],
           createdAt: +x.createdAt || 0
         };
       });
+      renderAll();
+    }, function (err) { connError = (err && err.code) || 'error'; renderAll(); });
+    unsubRec = onSnapshot(recCol(), function (snap) {
+      state.recurring = snap.docs.map(function (d) {
+        var x = d.data();
+        return {
+          id: d.id, amount: +x.amount || 0, cat: String(x.cat || ''), desc: String(x.desc || ''),
+          day: Math.max(1, Math.min(31, parseInt(x.day, 10) || 1)),
+          startMonth: /^\d{4}-\d{2}$/.test(x.startMonth || '') ? x.startMonth : monthOf(today()),
+          active: x.active !== false,
+          generated: Array.isArray(x.generated) ? x.generated.map(String) : [],
+          createdAt: +x.createdAt || 0
+        };
+      });
+      loaded.rec = true;
+      if (!(snap.metadata && snap.metadata.fromCache)) srv.rec = true;
       renderAll();
     }, function (err) { connError = (err && err.code) || 'error'; renderAll(); });
     unsubMeta = onSnapshot(setRef(), function (snap) {
